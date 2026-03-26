@@ -140,6 +140,15 @@ export default function App() {
 
   useEffect(() => { load() }, [load])
 
+// >>> วางอันใหม่ต่อท้ายตรงนี้ <<<
+  useEffect(() => {
+    const interval = setInterval(() => {
+      load(true);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [load]);
+
+
   // ── Loading screen ─────────────────────────────────────────
   if (loading) return (
     <div style={{
@@ -158,6 +167,7 @@ export default function App() {
 
   return (
     <div style={{ background: '#f0efe8', minHeight: '100vh', maxWidth: 480, margin: '0 auto', paddingBottom: 32 }}>
+
 
       {/* ── 1. HEADER ── */}
       <Card style={{ marginTop: 14 }}>
