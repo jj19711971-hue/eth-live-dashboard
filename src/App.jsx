@@ -8,7 +8,13 @@ import {
   calcForecastScore, getSignal, fgLabel, fgColor
 } from './logic/logic.js'
 
+<<<<<<< HEAD
 // ─── Card wrapper ─────────────────────────────────────────────
+=======
+const AUTO_REFRESH_SEC = 30
+
+// ── Card ─────────────────────────────────────────────────────
+>>>>>>> fa29c801e60ab9bc8762c44691daa9db52895bb3
 function Card({ children, style = {} }) {
   return (
     <div style={{
