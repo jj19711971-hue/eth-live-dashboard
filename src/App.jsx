@@ -112,7 +112,7 @@ export default function App() {
       const pctChange   = ((price - price24hAgo) / price24hAgo) * 100
 
       // --- [จุดที่แก้]: คำนวณราคาเงินบาท (THB) โดยคูณเรทปัจจุบัน (เช่น 36.5) ---
-      const usdThbRate = 32.2 
+      const usdThbRate = 32.8 
       const ethThb = price * usdThbRate
 
       const ema9    = calcEMA(closes.slice(-60), 9)
