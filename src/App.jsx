@@ -8,7 +8,7 @@ import {
   calcForecastScore, getSignal, fgLabel, fgColor
 } from './logic/logic.js'
 
-const AUTO_REFRESH_SEC = 60
+const AUTO_REFRESH_SEC = 30
 
 // ── Card ─────────────────────────────────────────────────────
 function Card({ children, style = {} }) {
