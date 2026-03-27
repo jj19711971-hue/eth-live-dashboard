@@ -184,7 +184,7 @@ export default function App() {
                 ${ind?.price?.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               {ind?.ethThb && (
-                <div style={{ fontSize: 28, color: '#FF69B4', fontWeight: 600 }}>
+                <div style={{ fontSize: 25, color: '#FF69B4', fontWeight: 600 }}>
                   ≈ ฿{ind.ethThb.toLocaleString('th', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </div>
               )}
@@ -220,14 +220,14 @@ export default function App() {
             flex: 1, background: '#f0faf4', borderRadius: 10, padding: '12px', textAlign: 'center',
             border: '1px solid #dcfce7'
           }}>
-            <div style={{ fontSize: 11, color: '#166534', fontWeight: 700, marginBottom: 4 }}>สูงขึ้นเป็น</div>
+            <div style={{ fontSize: 13, color: '#166534', fontWeight: 700, marginBottom: 4 }}>สูงขึ้นเป็น</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#15803d' }}>{probUp}%</div>
           </div>
           <div style={{ 
             flex: 1, background: '#fef2f2', borderRadius: 10, padding: '12px', textAlign: 'center',
             border: '1px solid #fee2e2'
           }}>
-            <div style={{ fontSize: 11, color: '#991b1b', fontWeight: 700, marginBottom: 4 }}>ลดลง</div>
+            <div style={{ fontSize: 13, color: '#991b1b', fontWeight: 700, marginBottom: 4 }}>ลดลง</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#b91c1c' }}>{probDown}%</div>
           </div>
         </div>
@@ -246,7 +246,7 @@ export default function App() {
               borderLeft: s.border ? '1px solid #ede9e0' : 'none',
               borderRight: s.border ? '1px solid #ede9e0' : 'none',
             }}>
-              <div style={{ fontSize: 10, color: '#a09880', fontWeight: 600, letterSpacing: 0.3 }}>{s.label}</div>
+              <div style={{ fontSize: 14, color: '#a09880', fontWeight: 600, letterSpacing: 0.3 }}>{s.label}</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: s.color, marginTop: 3, letterSpacing: -0.5 }}>{s.value}</div>
             </div>
           ))}
@@ -312,7 +312,7 @@ export default function App() {
             display: 'flex', alignItems: 'flex-start', gap: 8,
             padding: '8px 0', borderBottom: i < (news.news.length - 1) ? '1px solid #f2ede4' : 'none'
           }}>
-            <span style={{ fontSize: 10, color: '#b0a898', width: 62, flexShrink: 0, paddingTop: 1, fontWeight: 600 }}>{n.source}</span>
+            <span style={{ fontSize: 11, color: '#b0a898', width: 62, flexShrink: 0, paddingTop: 1, fontWeight: 600 }}>{n.source}</span>
             <span style={{ fontSize: 12, color: '#2a2520', flex: 1, lineHeight: 1.5 }}>{n.headline}</span>
             <Tag label={n.tag} />
           </div>
@@ -331,11 +331,11 @@ export default function App() {
               flex: 1, textAlign: 'center', padding: '8px 4px', borderRadius: 10,
               background: item.ok === null ? '#f8f5ef' : item.ok ? '#f0faf4' : '#fdf0f0',
             }}>
-              <div style={{ fontSize: 10, color: '#a09880', fontWeight: 600 }}>{item.label}</div>
-              <div style={{ fontSize: 17, fontWeight: 800, marginTop: 2,
+              <div style={{ fontSize: 13, color: '#a09880', fontWeight: 600 }}>{item.label}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2,
                 color: item.ok === null ? '#a09880' : item.ok ? '#2d6a4f' : '#c0392b'
               }}>{item.val}</div>
-              <div style={{ fontSize: 12, fontWeight: 700,
+              <div style={{ fontSize: 13, fontWeight: 700,
                 color: item.ok === null ? '#a09880' : item.ok ? '#52b788' : '#c0392b'
               }}>
                 {item.ok === null ? '—' : item.ok ? '✓' : '✗'}
@@ -344,10 +344,10 @@ export default function App() {
           ))}
         </div>
 
-        <div style={{ fontSize: 12, color: '#4a4035', lineHeight: 1.8, padding: '10px 14px', background: '#f8f5ef', borderRadius: 10 }}>
+        <div style={{ fontSize: 15, color: '#4a4035', lineHeight: 1.8, padding: '10px 14px', background: '#f8f5ef', borderRadius: 10 }}>
           {news?.signal_detail ?? `ประเมินจาก Indicator — แนวรับ $${ind?.support?.toFixed(0)} · แนวต้าน $${ind?.resistance?.toFixed(0)}`}
-          <div style={{ fontSize: 10, color: '#a09880', marginTop: 6 }}>
-            ⚠️ ข้อมูลนี้เพื่อการศึกษาเท่านั้น ไม่ใช่คำแนะนำการลงทุน
+          <div style={{ fontSize: 13, color: '#a09880', marginTop: 6 }}>
+            ⚠️ คำเตือน:นี่เป็นข้อมูลทางเทคนิค ไม่ใช่คำแนะนำการลงทุน
           </div>
         </div>
       </Card>
@@ -365,8 +365,8 @@ export default function App() {
           {!refreshing && <Countdown sec={countdown} total={AUTO_REFRESH_SEC} />}
         </button>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, padding: '0 2px' }}>
-          {lastUpdate && <span style={{ fontSize: 10, color: '#b0a898' }}>อัปเดตล่าสุด {lastUpdate.toLocaleTimeString('th-TH')}</span>}
-          <span style={{ fontSize: 10, color: '#b0a898' }}>Auto-refresh ทุก {AUTO_REFRESH_SEC} วินาที</span>
+          {lastUpdate && <span style={{ fontSize: 13, color: '#b0a898' }}>อัปเดตล่าสุด {lastUpdate.toLocaleTimeString('th-TH')}</span>}
+          <span style={{ fontSize: 13, color: '#b0a898' }}>Auto-refresh ทุก {AUTO_REFRESH_SEC} วินาที</span>
         </div>
         {error && <div style={{ color: '#e63946', fontSize: 11, textAlign: 'center', marginTop: 6 }}>{error}</div>}
       </div>
