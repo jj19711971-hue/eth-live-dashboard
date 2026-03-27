@@ -144,7 +144,7 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       load(true);
-    }, 30000);
+    }, 60000);
     return () => clearInterval(interval);
   }, [load]);
 
