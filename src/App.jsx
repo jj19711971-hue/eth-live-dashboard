@@ -11,6 +11,106 @@ import {
 
 const AUTO_REFRESH_SEC = 30
 
+// ─────────────────────────────────────────────
+// MULTI-ASSET PRICES
+// ─────────────────────────────────────────────
+const ASSETS = [
+  { label: 'BTC/THB',  binance: 'BTCUSDT',  thbRate: true,  decimals: 0 },
+  { label: 'USDT/THB', binance: null,        isUSDT: true,   decimals: 2 },
+  { label: 'DOGE/THB', binance: 'DOGEUSDT', thbRate: true,  decimals: 4 },
+  { label: 'XRP/THB',  binance: 'XRPUSDT',  thbRate: true,  decimals: 2 },
+  { label: 'XAU/USD',  binance: 'PAXGUSDT', isGold: true,   decimals: 2 },
+]
+
+async function fetchUSDTHB() {
+  try {
+    const r = await fetch('https://api.exchangerate-api.com/v4/latest/USD')
+    const d = await r.json()
+    return d.rates?.THB ?? 34.5
+  } catch { return 34.5 }
+}
+
+function MultiAssetPrices() {
+  const [data, setData]       = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const thbRate = await fetchUSDTHB()
+        const symbols = ASSETS.filter(a => a.binance).map(a => a.binance)
+        const results = await Promise.all(
+          symbols.map(s =>
+            fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`)
+              .then(r => r.json())
+          )
+        )
+        const priceMap = {}
+        symbols.forEach((s, i) => {
+          priceMap[s] = {
+            price: parseFloat(results[i].lastPrice),
+            chg:   parseFloat(results[i].priceChangePercent),
+          }
+        })
+
+        const rows = ASSETS.map(a => {
+          if (a.isUSDT) return { label: a.label, price: thbRate, chg: null, unit: '฿', decimals: a.decimals }
+          const b = priceMap[a.binance]
+          if (!b) return null
+          const price = a.thbRate ? b.price * thbRate : b.price
+          return { label: a.label, price, chg: b.chg, unit: a.isGold ? '$' : '฿', decimals: a.decimals }
+        }).filter(Boolean)
+
+        setData(rows)
+      } catch (e) { console.error(e) }
+      finally { setLoading(false) }
+    }
+    load()
+    const t = setInterval(load, 30000)
+    return () => clearInterval(t)
+  }, [])
+
+  if (loading) return (
+    <div style={{ textAlign: 'center', color: '#b0a898', fontSize: 13, padding: 12 }}>
+      กำลังโหลดราคา...
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+      {data.map((item, i) => {
+        const isNeutral = item.chg === null
+        const up  = !isNeutral && item.chg >= 0
+        const col = isNeutral ? '#FF69B4' : up ? '#16a34a' : '#dc2626'
+        const bg  = isNeutral ? '#f8f5ef' : up ? '#f0faf4' : '#fef2f2'
+        const bd  = isNeutral ? '#ede9e0' : up ? '#bbf7d0' : '#fecaca'
+        return (
+          <div key={i} style={{ background: bg, border: `1px solid ${bd}`, borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#a09880', letterSpacing: 0.5, marginBottom: 4 }}>
+              {item.label}
+            </div>
+            <div style={{ fontSize: item.price > 999999 ? 16 : 18, fontWeight: 800, color: col, letterSpacing: -0.3 }}>
+              {item.unit}{item.price.toLocaleString('en', {
+                minimumFractionDigits: item.decimals,
+                maximumFractionDigits: item.decimals,
+              })}
+            </div>
+            {!isNeutral && (
+              <div style={{ fontSize: 13, fontWeight: 700, color: col, marginTop: 2 }}>
+                {up ? '▲ +' : '▼ '}{Math.abs(item.chg).toFixed(2)}%
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// SHARED COMPONENTS
+// ─────────────────────────────────────────────
 function Card({ children, style = {} }) {
   return (
     <div style={{
@@ -76,6 +176,9 @@ function Countdown({ sec, total }) {
   )
 }
 
+// ─────────────────────────────────────────────
+// MAIN APP
+// ─────────────────────────────────────────────
 export default function App() {
   const [loading, setLoading]           = useState(true)
   const [refreshing, setRefreshing]     = useState(false)
@@ -151,7 +254,10 @@ export default function App() {
     timerRef.current = setInterval(() => { load(true); setCountdown(AUTO_REFRESH_SEC) }, AUTO_REFRESH_SEC * 1000)
   }, [load])
 
-  useEffect(() => { load().then(startTimers); return () => { clearInterval(timerRef.current); clearInterval(countRef.current) } }, [])
+  useEffect(() => {
+    load().then(startTimers)
+    return () => { clearInterval(timerRef.current); clearInterval(countRef.current) }
+  }, [])
 
   const handleRefresh = () => { load(true); startTimers() }
 
@@ -163,12 +269,10 @@ export default function App() {
     </div>
   )
 
-  const sig = score !== null ? getSignal(score) : null
-  const up  = (ind?.pctChange ?? 0) >= 0
+  const sig      = score !== null ? getSignal(score) : null
+  const up       = (ind?.pctChange ?? 0) >= 0
   const newsScore = news?.news_score ?? (news?.news ? `${news.news.filter(n => n.tag === 'บวก').length}/${news.news.length}` : '—')
-
-  // Logic การคำนวณคาดการณ์ราคาเบื้องต้นจาก Score และ Indicators
-  const probUp = score ? Math.min(Math.max(score, 10), 90) : 50
+  const probUp   = score ? Math.min(Math.max(score, 10), 90) : 50
   const probDown = 100 - probUp
 
   return (
@@ -212,21 +316,15 @@ export default function App() {
         </div>
       )}
 
-      {/* PREDICTION BLOCK (New) */}
+      {/* PREDICTION */}
       <Card>
         <SecTitle>คาดการณ์ราคาในอีก 24 ช.ม.</SecTitle>
         <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ 
-            flex: 1, background: '#f0faf4', borderRadius: 10, padding: '12px', textAlign: 'center',
-            border: '1px solid #dcfce7'
-          }}>
+          <div style={{ flex: 1, background: '#f0faf4', borderRadius: 10, padding: '12px', textAlign: 'center', border: '1px solid #dcfce7' }}>
             <div style={{ fontSize: 13, color: '#166534', fontWeight: 700, marginBottom: 4 }}>สูงขึ้นเป็น</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#15803d' }}>{probUp}%</div>
           </div>
-          <div style={{ 
-            flex: 1, background: '#fef2f2', borderRadius: 10, padding: '12px', textAlign: 'center',
-            border: '1px solid #fee2e2'
-          }}>
+          <div style={{ flex: 1, background: '#fef2f2', borderRadius: 10, padding: '12px', textAlign: 'center', border: '1px solid #fee2e2' }}>
             <div style={{ fontSize: 13, color: '#991b1b', fontWeight: 700, marginBottom: 4 }}>ลดลง</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#b91c1c' }}>{probDown}%</div>
           </div>
@@ -237,15 +335,11 @@ export default function App() {
       <Card style={{ padding: '12px 8px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
           {[
-            { label: 'กลัว & โลภ', value: ind?.fg ?? '—', color: fgColor(ind?.fg ?? 50) },
-            { label: 'ส่วนแบ่ง BTC', value: `${ind?.btcDom?.toFixed(1)}%`, color: '#4a4035', border: true },
-            { label: 'ผันผวน (H1)', value: `$${ind?.atr?.toFixed(2) ?? '—'}`, color: '#4a4035' },
+            { label: 'กลัว & โลภ',    value: ind?.fg ?? '—',              color: fgColor(ind?.fg ?? 50) },
+            { label: 'ส่วนแบ่ง BTC',  value: `${ind?.btcDom?.toFixed(1)}%`, color: '#4a4035', border: true },
+            { label: 'ผันผวน (H1)',    value: `$${ind?.atr?.toFixed(2) ?? '—'}`, color: '#4a4035' },
           ].map((s, i) => (
-            <div key={i} style={{
-              textAlign: 'center', padding: '4px 6px',
-              borderLeft: s.border ? '1px solid #ede9e0' : 'none',
-              borderRight: s.border ? '1px solid #ede9e0' : 'none',
-            }}>
+            <div key={i} style={{ textAlign: 'center', padding: '4px 6px', borderLeft: s.border ? '1px solid #ede9e0' : 'none', borderRight: s.border ? '1px solid #ede9e0' : 'none' }}>
               <div style={{ fontSize: 14, color: '#a09880', fontWeight: 600, letterSpacing: 0.3 }}>{s.label}</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: s.color, marginTop: 3, letterSpacing: -0.5 }}>{s.value}</div>
             </div>
@@ -265,18 +359,14 @@ export default function App() {
         <IndRow dotColor="#52b788" label="ADX ดูเทรนด์"
           value={ind?.adx?.toFixed(1) ?? '—'}
           valueColor={ind?.adx > 25 ? (ind?.plusDI > ind?.minusDI ? '#2d6a4f' : '#c0392b') : '#c07a30'}
-          bar={{ value: ind?.adx ?? 0, max: 60,
-            color: ind?.adx > 25 ? (ind?.plusDI > ind?.minusDI ? '#52b788' : '#e63946') : '#f4a261'
-          }} />
+          bar={{ value: ind?.adx ?? 0, max: 60, color: ind?.adx > 25 ? (ind?.plusDI > ind?.minusDI ? '#52b788' : '#e63946') : '#f4a261' }} />
         <IndRow dotColor="#52b788" label="+Buy / -Sell ยืนยัน:แรงซื้อ/ขาย"
           value={ind?.plusDI > ind?.minusDI ? '+DI > -DI ▲' : '+DI < -DI ▼'}
           valueColor={ind?.plusDI > ind?.minusDI ? '#2d6a4f' : '#c0392b'} />
         <IndRow dotColor="#f4a261" label="RSI (14) มากเกินไป"
           value={ind?.rsi?.toFixed(1) ?? '—'}
           valueColor={ind?.rsi > 70 ? '#e63946' : ind?.rsi < 30 ? '#c0392b' : ind?.rsi > 50 ? '#2d6a4f' : '#c07a30'}
-          bar={{ value: ind?.rsi ?? 0, max: 100,
-            color: ind?.rsi > 70 ? '#e63946' : ind?.rsi < 30 ? '#c0392b' : '#f4a261'
-          }} />
+          bar={{ value: ind?.rsi ?? 0, max: 100, color: ind?.rsi > 70 ? '#e63946' : ind?.rsi < 30 ? '#c0392b' : '#f4a261' }} />
         <IndRow dotColor="#52b788" label="Volume Trend ยืนยันทิศทางราคา"
           value={`${(ind?.volPct ?? 0) >= 0 ? 'เพิ่มขึ้น +' : 'ลดลง '}${Math.abs(ind?.volPct ?? 0)}%`}
           valueColor={(ind?.volPct ?? 0) >= 0 ? '#2d6a4f' : '#c0392b'}
@@ -332,24 +422,25 @@ export default function App() {
               background: item.ok === null ? '#f8f5ef' : item.ok ? '#f0faf4' : '#fdf0f0',
             }}>
               <div style={{ fontSize: 13, color: '#a09880', fontWeight: 600 }}>{item.label}</div>
-              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2,
-                color: item.ok === null ? '#a09880' : item.ok ? '#2d6a4f' : '#c0392b'
-              }}>{item.val}</div>
-              <div style={{ fontSize: 13, fontWeight: 700,
-                color: item.ok === null ? '#a09880' : item.ok ? '#52b788' : '#c0392b'
-              }}>
+              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2, color: item.ok === null ? '#a09880' : item.ok ? '#2d6a4f' : '#c0392b' }}>{item.val}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: item.ok === null ? '#a09880' : item.ok ? '#52b788' : '#c0392b' }}>
                 {item.ok === null ? '—' : item.ok ? '✓' : '✗'}
               </div>
             </div>
           ))}
         </div>
-
         <div style={{ fontSize: 15, color: '#4a4035', lineHeight: 1.8, padding: '10px 14px', background: '#f8f5ef', borderRadius: 10 }}>
           {news?.signal_detail ?? `ประเมินจาก Indicator — แนวรับ $${ind?.support?.toFixed(0)} · แนวต้าน $${ind?.resistance?.toFixed(0)}`}
           <div style={{ fontSize: 13, color: '#a09880', marginTop: 6 }}>
-            ⚠️ คำเตือน:นี่เป็นข้อมูลทางเทคนิค ไม่ใช่คำแนะนำการลงทุน
+            ⚠️ คำเตือน: นี่เป็นข้อมูลทางเทคนิค ไม่ใช่คำแนะนำการลงทุน
           </div>
         </div>
+      </Card>
+
+      {/* ─── MULTI-ASSET PRICES (NEW) ─── */}
+      <Card>
+        <SecTitle>ราคาสินทรัพย์อื่น</SecTitle>
+        <MultiAssetPrices />
       </Card>
 
       {/* REFRESH */}
@@ -370,6 +461,7 @@ export default function App() {
         </div>
         {error && <div style={{ color: '#e63946', fontSize: 11, textAlign: 'center', marginTop: 6 }}>{error}</div>}
       </div>
+
     </div>
   )
 }
