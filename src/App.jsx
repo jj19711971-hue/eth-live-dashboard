@@ -55,11 +55,11 @@ function MultiAssetPrices() {
         })
 
         const rows = ASSETS.map(a => {
-          if (a.isUSDT) return { label: a.label, price: thbRate, chg: null, unit: '฿', decimals: a.decimals }
+          if (a.isUSDT) return { label: a.label, price: thbRate, chg: null, unit: ' ', decimals: a.decimals }
           const b = priceMap[a.binance]
           if (!b) return null
           const price = a.thbRate ? b.price * thbRate : b.price
-          return { label: a.label, price, chg: b.chg, unit: a.isGold ? '$' : '฿', decimals: a.decimals }
+          return { label: a.label, price, chg: b.chg, unit: a.isGold ? '$ ' : ' ', decimals: a.decimals }
         }).filter(Boolean)
 
         setData(rows)
@@ -77,6 +77,9 @@ function MultiAssetPrices() {
     </div>
   )
 
+// ─────────────────────────────────────────────
+// 	FontSize ราคาเหรียญ
+// ─────────────────────────────────────────────
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       {data.map((item, i) => {
