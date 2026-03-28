@@ -24,7 +24,7 @@ function Card({ children, style = {} }) {
 
 function SecTitle({ children }) {
   return (
-    <div style={{ fontSize: 10, fontWeight: 700, color: '#a09880', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 }}>
+    <div style={{ fontSize: 14, fontWeight: 700, color: '#a09880', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 10 }}>
       {children}
     </div>
   )
@@ -237,9 +237,9 @@ export default function App() {
       <Card style={{ padding: '12px 8px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
           {[
-            { label: 'Fear & Greed', value: ind?.fg ?? '—', color: fgColor(ind?.fg ?? 50) },
-            { label: 'BTC Dom.', value: `${ind?.btcDom?.toFixed(1)}%`, color: '#4a4035', border: true },
-            { label: 'ATR (H1)', value: `$${ind?.atr?.toFixed(2) ?? '—'}`, color: '#4a4035' },
+            { label: 'ความกลัว & ความโลภ', value: ind?.fg ?? '—', color: fgColor(ind?.fg ?? 50) },
+            { label: 'ส่วนแบ่ง BTC.', value: `${ind?.btcDom?.toFixed(1)}%`, color: '#4a4035', border: true },
+            { label: 'ความผันผวน (H1)', value: `$${ind?.atr?.toFixed(2) ?? '—'}`, color: '#4a4035' },
           ].map((s, i) => (
             <div key={i} style={{
               textAlign: 'center', padding: '4px 6px',
@@ -256,28 +256,28 @@ export default function App() {
       {/* TECHNICAL */}
       <Card>
         <SecTitle>Technical Indicators</SecTitle>
-        <IndRow dotColor="#52b788" label="EMA 9/21 H1"
+        <IndRow dotColor="#52b788" label="EMA 9/21 H1 [ แนวโน้มระยะสั้น ]"
           value={ind?.ema9 > ind?.ema21 ? 'Fast > Slow ▲' : 'Fast < Slow ▼'}
           valueColor={ind?.ema9 > ind?.ema21 ? '#2d6a4f' : '#c0392b'} />
-        <IndRow dotColor="#52b788" label="EMA H4 Filter"
+        <IndRow dotColor="#52b788" label="EMA H4 Filter [ ตัวกรองแนวโน้มใหญ่ ]"
           value={ind?.price > ind?.ema21h4 ? 'Price > EMA21 ✓' : 'Price < EMA21 ✗'}
           valueColor={ind?.price > ind?.ema21h4 ? '#2d6a4f' : '#c0392b'} />
-        <IndRow dotColor="#52b788" label="ADX Strength"
+        <IndRow dotColor="#52b788" label="ADX [ ความแข็งแกร่งของเทรนด์ ]"
           value={ind?.adx?.toFixed(1) ?? '—'}
           valueColor={ind?.adx > 25 ? (ind?.plusDI > ind?.minusDI ? '#2d6a4f' : '#c0392b') : '#c07a30'}
           bar={{ value: ind?.adx ?? 0, max: 60,
             color: ind?.adx > 25 ? (ind?.plusDI > ind?.minusDI ? '#52b788' : '#e63946') : '#f4a261'
           }} />
-        <IndRow dotColor="#52b788" label="+DI / -DI"
+        <IndRow dotColor="#52b788" label="+Buy / -Sell [ ยืนยัน: แรงซื้อ/แรงขาย ]"
           value={ind?.plusDI > ind?.minusDI ? '+DI > -DI ▲' : '+DI < -DI ▼'}
           valueColor={ind?.plusDI > ind?.minusDI ? '#2d6a4f' : '#c0392b'} />
-        <IndRow dotColor="#f4a261" label="RSI (14)"
+        <IndRow dotColor="#f4a261" label="RSI (14) [ ซื้อ/ขาย มากเกินไป ]"
           value={ind?.rsi?.toFixed(1) ?? '—'}
           valueColor={ind?.rsi > 70 ? '#e63946' : ind?.rsi < 30 ? '#c0392b' : ind?.rsi > 50 ? '#2d6a4f' : '#c07a30'}
           bar={{ value: ind?.rsi ?? 0, max: 100,
             color: ind?.rsi > 70 ? '#e63946' : ind?.rsi < 30 ? '#c0392b' : '#f4a261'
           }} />
-        <IndRow dotColor="#52b788" label="Volume Trend"
+        <IndRow dotColor="#52b788" label="Volume Trend [ ยืนยันทิศทางราคา  ]"
           value={`${(ind?.volPct ?? 0) >= 0 ? 'เพิ่มขึ้น +' : 'ลดลง '}${Math.abs(ind?.volPct ?? 0)}%`}
           valueColor={(ind?.volPct ?? 0) >= 0 ? '#2d6a4f' : '#c0392b'}
           last />
@@ -286,16 +286,16 @@ export default function App() {
       {/* SENTIMENT */}
       <Card>
         <SecTitle>Market Sentiment</SecTitle>
-        <IndRow dotColor="#52b788" label="Fear & Greed Index"
+        <IndRow dotColor="#52b788" label="Fear & Greed Index [ ดัชนี: ความกลัว/ความโลภ ]"
           value={`${ind?.fg} — ${fgLabel(ind?.fg ?? 50)}`}
           valueColor={fgColor(ind?.fg ?? 50)} />
-        <IndRow dotColor="#f4a261" label="BTC Correlation"
+        <IndRow dotColor="#f4a261" label="BTC Correlation [ ราคาไปในทิศทางเดียวกับ btc]"
           value={`BTC ${ind?.btcChg >= 0 ? '+' : ''}${ind?.btcChg?.toFixed(1)}% ${ind?.btcChg >= 0 ? '▲ นำ' : '▼ ลง'}`}
           valueColor={ind?.btcChg >= 0 ? '#2d6a4f' : '#c0392b'} />
-        <IndRow dotColor="#f4a261" label="BTC Dominance"
+        <IndRow dotColor="#f4a261" label="BTC Dominance [ ส่วนแบ่งการตลาด ]"
           value={`${ind?.btcDom?.toFixed(1)}% → ${ind?.btcDom > 56 ? 'สูง' : ind?.btcDom > 52 ? 'ปกติ' : 'ต่ำ (Alt Season)'}`}
           valueColor={ind?.btcDom > 58 ? '#c0392b' : ind?.btcDom < 52 ? '#2d6a4f' : '#4a4035'} />
-        <IndRow dotColor="#52b788" label="Funding Rate"
+        <IndRow dotColor="#52b788" label="Funding Rate [ ค่าธรรมเนียม Long/Short ]"
           value={ind?.fundingLabel ?? 'N/A (Spot)'}
           valueColor={ind?.fundingColor ?? '#888'}
           last />
