@@ -371,8 +371,8 @@ export default function App() {
               {sig.icon}
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 17, color: sig.color }}>{sig.th}</div>
-              <div style={{ fontSize: 15, color: sig.color + 'cc', marginTop: 2 }}>{sig.sub}</div>
+              <div style={{ fontWeight: 800, fontSize: 15, color: sig.color }}>{sig.th}</div>
+              <div style={{ fontSize: 13, color: sig.color + 'cc', marginTop: 2 }}>{sig.sub}</div>
             </div>
           </div>
         </div>
