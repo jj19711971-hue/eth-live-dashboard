@@ -12,14 +12,67 @@ import {
 const AUTO_REFRESH_SEC = 30
 
 // ─────────────────────────────────────────────
-// MULTI-ASSET PRICES
+// [FIX] คำนวณ prob24h แยกจาก score
+// score   = สถานะตลาดปัจจุบัน (Technical + Sentiment รวม)
+// prob24h = โอกาสราคาขึ้นใน 24 ชม. ปรับด้วย Momentum จริง
+// ─────────────────────────────────────────────
+function calcProb24h(score, ind) {
+  if (!ind) return 50
+
+  // ปรับค่าจาก score เป็น base 50 (neutral)
+  // score 0-100 → shift ให้ 50 = neutral
+  let base = (score - 50) * 0.6 + 50  // หด range ให้แคบลงเพื่อไม่ให้เท่า score เปะๆ
+
+  // +/- ปรับจาก Momentum indicators
+  let adj = 0
+
+  // RSI momentum
+  if (ind.rsi !== undefined) {
+    if (ind.rsi > 65)       adj -= 5   // overbought → โอกาสขึ้นต่อลด
+    else if (ind.rsi < 35)  adj += 7   // oversold → โอกาส bounce เพิ่ม
+    else if (ind.rsi > 55)  adj += 3
+    else if (ind.rsi < 45)  adj -= 3
+  }
+
+  // pctChange วันนี้ มีผลต่อ momentum ต่อ
+  if (ind.pctChange !== undefined) {
+    if (ind.pctChange > 5)       adj -= 4   // ขึ้นมามากแล้ว โอกาส pullback
+    else if (ind.pctChange > 2)  adj += 2
+    else if (ind.pctChange < -5) adj += 5   // ลงมามากแล้ว โอกาส bounce
+    else if (ind.pctChange < -2) adj -= 2
+  }
+
+  // Volume trend ยืนยัน
+  if (ind.volPct !== undefined) {
+    if (ind.volPct > 20 && ind.pctChange > 0)  adj += 3   // Volume สูง + ราคาขึ้น
+    if (ind.volPct > 20 && ind.pctChange < 0)  adj -= 3   // Volume สูง + ราคาลง
+  }
+
+  // BTC นำ/ตาม
+  if (ind.btcChg !== undefined) {
+    adj += ind.btcChg > 0 ? 2 : -2
+  }
+
+  // Fear & Greed
+  if (ind.fg !== undefined) {
+    if (ind.fg < 20)       adj += 4   // Extreme Fear → contrarian bullish
+    else if (ind.fg > 75)  adj -= 4   // Extreme Greed → contrarian bearish
+  }
+
+  const prob = Math.round(Math.min(Math.max(base + adj, 15), 85))
+  return prob
+}
+
+// ─────────────────────────────────────────────
+// MULTI-ASSET PRICES — เพิ่ม BTC/USD
 // ─────────────────────────────────────────────
 const ASSETS = [
-  { label: 'BTC/THB',  binance: 'BTCUSDT',  thbRate: true,  decimals: 0 },
-  { label: 'USDT/THB', binance: null,        isUSDT: true,   decimals: 2 },
-  { label: 'DOGE/THB', binance: 'DOGEUSDT', thbRate: true,  decimals: 4 },
-  { label: 'XRP/THB',  binance: 'XRPUSDT',  thbRate: true,  decimals: 2 },
-  { label: 'XAU/USD',  binance: 'PAXGUSDT', isGold: true,   decimals: 2 },
+  { label: 'BTC/USD',  binance: 'BTCUSDT',  thbRate: false, decimals: 0  },  // [NEW]
+  { label: 'BTC/THB',  binance: 'BTCUSDT',  thbRate: true,  decimals: 0  },
+  { label: 'USDT/THB', binance: null,        isUSDT: true,   decimals: 2  },
+  { label: 'DOGE/THB', binance: 'DOGEUSDT', thbRate: true,  decimals: 4  },
+  { label: 'XRP/THB',  binance: 'XRPUSDT',  thbRate: true,  decimals: 2  },
+  { label: 'XAU/USD',  binance: 'PAXGUSDT', isGold: true,   decimals: 2  },
 ]
 
 async function fetchUSDTHB() {
@@ -39,15 +92,16 @@ function MultiAssetPrices() {
       setLoading(true)
       try {
         const thbRate = await fetchUSDTHB()
-        const symbols = ASSETS.filter(a => a.binance).map(a => a.binance)
+        // dedupe symbols สำหรับ fetch (BTCUSDT ใช้ 2 ครั้ง)
+        const uniqueSymbols = [...new Set(ASSETS.filter(a => a.binance).map(a => a.binance))]
         const results = await Promise.all(
-          symbols.map(s =>
+          uniqueSymbols.map(s =>
             fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`)
               .then(r => r.json())
           )
         )
         const priceMap = {}
-        symbols.forEach((s, i) => {
+        uniqueSymbols.forEach((s, i) => {
           priceMap[s] = {
             price: parseFloat(results[i].lastPrice),
             chg:   parseFloat(results[i].priceChangePercent),
@@ -59,7 +113,13 @@ function MultiAssetPrices() {
           const b = priceMap[a.binance]
           if (!b) return null
           const price = a.thbRate ? b.price * thbRate : b.price
-          return { label: a.label, price, chg: b.chg, unit: a.isGold ? '$ ' : ' ', decimals: a.decimals }
+          return {
+            label: a.label,
+            price,
+            chg: b.chg,
+            unit: (!a.thbRate) ? '$ ' : ' ',
+            decimals: a.decimals,
+          }
         }).filter(Boolean)
 
         setData(rows)
@@ -77,9 +137,6 @@ function MultiAssetPrices() {
     </div>
   )
 
-// ─────────────────────────────────────────────
-// 	FontSize ราคาเหรียญ
-// ─────────────────────────────────────────────
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       {data.map((item, i) => {
@@ -272,10 +329,12 @@ export default function App() {
     </div>
   )
 
-  const sig      = score !== null ? getSignal(score) : null
-  const up       = (ind?.pctChange ?? 0) >= 0
+  const sig       = score !== null ? getSignal(score) : null
+  const up        = (ind?.pctChange ?? 0) >= 0
   const newsScore = news?.news_score ?? (news?.news ? `${news.news.filter(n => n.tag === 'บวก').length}/${news.news.length}` : '—')
-  const probUp   = score ? Math.min(Math.max(score, 10), 90) : 50
+
+  // [FIX] prob24h คำนวณแยกจาก score โดยใช้ Momentum จริง
+  const probUp   = calcProb24h(score ?? 50, ind)
   const probDown = 100 - probUp
 
   return (
@@ -312,14 +371,14 @@ export default function App() {
               {sig.icon}
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 15, color: sig.color }}>{sig.th}</div>
-              <div style={{ fontSize: 11, color: sig.color + 'cc', marginTop: 2 }}>{sig.sub}</div>
+              <div style={{ fontWeight: 800, fontSize: 17, color: sig.color }}>{sig.th}</div>
+              <div style={{ fontSize: 15, color: sig.color + 'cc', marginTop: 2 }}>{sig.sub}</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* PREDICTION */}
+      {/* PREDICTION — [FIX] ใช้ probUp จาก calcProb24h แยกจาก score */}
       <Card>
         <SecTitle>คาดการณ์ราคาในอีก 24 ช.ม.</SecTitle>
         <div style={{ display: 'flex', gap: 12 }}>
@@ -332,14 +391,18 @@ export default function App() {
             <div style={{ fontSize: 24, fontWeight: 800, color: '#b91c1c' }}>{probDown}%</div>
           </div>
         </div>
+        {/* แสดงเหตุผลสั้นๆ */}
+        <div style={{ fontSize: 11, color: '#a09880', marginTop: 8, textAlign: 'center' }}>
+          ประเมินจาก RSI {ind?.rsi?.toFixed(0)} · ราคา{up ? 'ขึ้น' : 'ลง'} {Math.abs(ind?.pctChange ?? 0).toFixed(1)}% · Volume {(ind?.volPct ?? 0) >= 0 ? '+' : ''}{ind?.volPct ?? 0}%
+        </div>
       </Card>
 
       {/* STATS 3-col */}
       <Card style={{ padding: '12px 8px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
           {[
-            { label: 'กลัว & โลภ',    value: ind?.fg ?? '—',              color: fgColor(ind?.fg ?? 50) },
-            { label: 'ส่วนแบ่ง BTC',  value: `${ind?.btcDom?.toFixed(1)}%`, color: '#4a4035', border: true },
+            { label: 'กลัว & โลภ',    value: ind?.fg ?? '—',                    color: fgColor(ind?.fg ?? 50) },
+            { label: 'ส่วนแบ่ง BTC',  value: `${ind?.btcDom?.toFixed(1)}%`,      color: '#4a4035', border: true },
             { label: 'ผันผวน (H1)',    value: `$${ind?.atr?.toFixed(2) ?? '—'}`, color: '#4a4035' },
           ].map((s, i) => (
             <div key={i} style={{ textAlign: 'center', padding: '4px 6px', borderLeft: s.border ? '1px solid #ede9e0' : 'none', borderRight: s.border ? '1px solid #ede9e0' : 'none' }}>
@@ -440,7 +503,7 @@ export default function App() {
         </div>
       </Card>
 
-      {/* ─── MULTI-ASSET PRICES (NEW) ─── */}
+      {/* MULTI-ASSET PRICES */}
       <Card>
         <SecTitle>ราคาสินทรัพย์อื่น</SecTitle>
         <MultiAssetPrices />
