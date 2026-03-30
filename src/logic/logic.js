@@ -178,27 +178,27 @@ export function calcForecastScore(ind) {
 export function getSignal(score) {
   if (score >= 70) return {
     th: 'Bullish — ควรพิจารณาซื้อ',
-    sub: 'Signal ส่วนใหญ่เป็น Bullish — Trend ขึ้น Momentum แข็ง',
+    sub: 'Signal ส่วนใหญ่เป็น Bullish — Trend ขึ้น Momentum แข็ง ADX ถ้าพ้น 25 จะชัดเจนมาก',
     color: '#2d6a4f', bg: '#d8f3dc', border: '#b7e4c7', icon: '▲'
   }
   if (score >= 55) return {
     th: 'Slightly Bullish — ระวัง',
-    sub: 'สัญญาณบวกอ่อน — ควรรอยืนยันเพิ่มเติม',
+    sub: 'สัญญาณบวกอ่อน — ยังไม่ชัดเจน รอการยืนยันเพิ่มเติม รอให้ค่า ADX พุ่งสูงขึ้นเกิน 25 เพื่อยืนยันขาขึ้น',
     color: '#52796f', bg: '#e8f5e9', border: '#c8e6c9', icon: '↗'
   }
   if (score >= 45) return {
     th: 'Neutral — รอสัญญาณ',
-    sub: 'ตลาดไม่มีทิศทางชัดเจน — รอ Breakout',
+    sub: 'ตลาดไม่มีทิศทางชัดเจน — รอปัจจัยใหม่ๆมากระตุ้น รอดู Breakout ทิศทางราคาไปแนวทาง ขึ้นหรือลง',
     color: '#7b6914', bg: '#fff9e6', border: '#ffe08a', icon: '→'
   }
   if (score >= 30) return {
     th: 'Slightly Bearish — ระวัง',
-    sub: 'สัญญาณลบอ่อน — ควรระวังการซื้อ',
+    sub: 'สัญญาณลบอ่อน — ควรระวังการซื้อ ควรรอยืนยันเพิ่มเติม',
     color: '#9c4a1a', bg: '#fff3e0', border: '#ffcc80', icon: '↘'
   }
   return {
     th: 'Bearish — ควรระวัง',
-    sub: 'Signal ส่วนใหญ่เป็น Bearish — ตรวจจังหวะดีกว่านี้',
+    sub: 'Signal ส่วนใหญ่เป็น Bearish — ตรวจสอบและรอจังหวะดีกว่านี้',
     color: '#9b2226', bg: '#fde8e8', border: '#f5c2c7', icon: '▼'
   }
 }
