@@ -173,9 +173,9 @@ Return ONLY valid JSON (no markdown, no explanation):
     // Fallback — ใช้ข้อมูล macro จริงถ้ามี
     return {
       news: [
-        { source: 'CoinDesk',  headline: 'ETH ETF Inflow เพิ่มขึ้นต่อเนื่อง 3 วันติด มูลค่ารวม $180M', tag: 'บวก' },
+        { source: 'CoinDesk',  headline: 'ตลาดจับตาตัวเลขการจ้างงานนอกภาคเกษตร', tag: 'บวก' },
         { source: 'Reuters',   headline: 'Fed คงดอกเบี้ย — ตลาด Risk-on หุ้น Crypto ปรับตัวขึ้น',     tag: 'บวก' },
-        { source: 'Bloomberg', headline: 'Bitcoin ทะลุ $70K ลากทั้งตลาด',                               tag: 'บวก' },
+        { source: 'Bloomberg', headline: 'รายงานความเป็นไปได้ในการเจรจาระหว่างอิหร่านและคู่ขัดแย้ง',                               tag: 'บวก' },
         { source: 'Decrypt',   headline: 'Ethereum Foundation ขาย ETH 100 เหรียญ นักลงทุนจับตา',       tag: 'ระวัง' },
       ],
       news_score: 3,
