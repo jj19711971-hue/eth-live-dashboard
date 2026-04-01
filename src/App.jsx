@@ -314,7 +314,7 @@ function MarketPhaseCard({ phase }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 20 }}>{icons.left}</span>
           <div>
-            <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: 0.5 }}>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: 0.5 }}>
               MARKET PHASE Confirmation
             </div>
             <div style={{ fontSize: 14, color: '#fff', fontWeight: 800 }}>
@@ -336,7 +336,7 @@ function MarketPhaseCard({ phase }) {
         {/* Strength bar */}
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 13, color: phase.color, fontWeight: 700 }}>Breakout ราคาทะลุผ่านแนวรับหรือแนวต้านสำคัญ</span>
+            <span style={{ fontSize: 13, color: phase.color, fontWeight: 700 }}>Breakout ราคาผ่านแนวรับหรือแนวต้านสำคัญ</span>
             <span style={{ fontSize: 13, color: phase.color, fontWeight: 700 }}>{phase.strength}%</span>
           </div>
           <div style={{ height: 8, background: `${phase.border}`, borderRadius: 4, overflow: 'hidden' }}>
