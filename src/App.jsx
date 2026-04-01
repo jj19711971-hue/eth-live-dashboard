@@ -314,10 +314,10 @@ function MarketPhaseCard({ phase }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 20 }}>{icons.left}</span>
           <div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: 0.5 }}>
+            <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: 0.5 }}>
               MARKET PHASE
             </div>
-            <div style={{ fontSize: 16, color: '#fff', fontWeight: 800 }}>
+            <div style={{ fontSize: 14, color: '#fff', fontWeight: 800 }}>
               {phase.label}
             </div>
           </div>
