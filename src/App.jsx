@@ -9,70 +9,143 @@ import {
   getSignal, fgLabel, fgColor
 } from './logic/logic.js'
 
-const AUTO_REFRESH_SEC = 30
+const AUTO_REFRESH_SEC  = 30
+const NEWS_REFRESH_MS   = 6 * 60 * 60 * 1000   // 6 ชั่วโมง
 
-// ─────────────────────────────────────────────
-// [FIX] คำนวณ prob24h แยกจาก score
-// score   = สถานะตลาดปัจจุบัน (Technical + Sentiment รวม)
-// prob24h = โอกาสราคาขึ้นใน 24 ชม. ปรับด้วย Momentum จริง
-// ─────────────────────────────────────────────
-function calcProb24h(score, ind) {
-  if (!ind) return 50
+// ─────────────────────────────────────────────────────────────
+// MARKET PHASE — คำนวณสถานะ Breakout / Squeeze
+// Logic: ADX + Price vs EMA21 + DI direction
+// ─────────────────────────────────────────────────────────────
+function calcMarketPhase(ind) {
+  if (!ind) return null
+  const { adx, plusDI, minusDI, price, ema21h4, ema9, ema21, volRatio } = ind
 
-  // ปรับค่าจาก score เป็น base 50 (neutral)
-  // score 0-100 → shift ให้ 50 = neutral
-  let base = (score - 50) * 0.6 + 50  // หด range ให้แคบลงเพื่อไม่ให้เท่า score เปะๆ
-
-  // +/- ปรับจาก Momentum indicators
-  let adj = 0
-
-  // RSI momentum
-  if (ind.rsi !== undefined) {
-    if (ind.rsi > 65)       adj -= 5   // overbought → โอกาสขึ้นต่อลด
-    else if (ind.rsi < 35)  adj += 7   // oversold → โอกาส bounce เพิ่ม
-    else if (ind.rsi > 55)  adj += 3
-    else if (ind.rsi < 45)  adj -= 3
+  // Phase 1: Squeeze — ราคากำลังบีบตัว (ADX อ่อน, Volume ต่ำ)
+  if (adx !== null && adx < 20) {
+    return {
+      phase: 'squeeze',
+      label: 'ราคากำลังบีบตัว (Squeeze)',
+      sublabel: 'พลังงานสะสม รอทิศทาง Breakout',
+      icon: '⚡',
+      color: '#c07a30',
+      bg: '#fffbeb',
+      border: '#fde68a',
+      barColor: '#f59e0b',
+      strength: Math.round((20 - adx) / 20 * 100),   // ยิ่ง ADX ต่ำ ยิ่ง squeeze แน่น
+      detail: `ADX ${adx?.toFixed(1)} < 20 — ตลาดไม่มีทิศทางชัดเจน · ${volRatio < 0.9 ? 'Volume แห้ง ยืนยัน Squeeze' : 'Volume ปกติ'}`,
+      hint: 'รอสัญญาณ Breakout ตลาดยังไม่เลือกช้าง',
+    }
   }
 
-  // pctChange วันนี้ มีผลต่อ momentum ต่อ
-  if (ind.pctChange !== undefined) {
-    if (ind.pctChange > 5)       adj -= 4   // ขึ้นมามากแล้ว โอกาส pullback
-    else if (ind.pctChange > 2)  adj += 2
-    else if (ind.pctChange < -5) adj += 5   // ลงมามากแล้ว โอกาส bounce
-    else if (ind.pctChange < -2) adj -= 2
+  // Phase 2: Bullish Breakout — ADX > 20 + ราคาเหนือ EMA21 + +DI > -DI
+  if (
+    adx !== null && adx >= 20 &&
+    price !== null && ema21h4 !== null && price > ema21h4 &&
+    plusDI !== null && minusDI !== null && plusDI > minusDI
+  ) {
+    const strength = Math.min(100, Math.round(
+      ((adx - 20) / 40) * 50 +           // ADX contribution (0-50)
+      ((plusDI - minusDI) / 30) * 30 +    // DI spread (0-30)
+      (price > ema21 ? 20 : 0)            // EMA9/21 aligned (0-20)
+    ))
+    return {
+      phase: 'bullish',
+      label: 'กำลังพุ่งสูงขึ้น (Bullish Breakout)',
+      sublabel: 'Trend ขาขึ้น — Momentum แข็ง',
+      icon: '🚀',
+      color: '#2d6a4f',
+      bg: '#f0fdf4',
+      border: '#86efac',
+      barColor: '#22c55e',
+      strength,
+      detail: `ADX ${adx?.toFixed(1)} · +DI ${plusDI?.toFixed(1)} > -DI ${minusDI?.toFixed(1)} · Price > EMA21`,
+      hint: adx > 40 ? 'Trend แข็งมาก — ระวัง Overbought ซื้อมากเกินไป' : 'Trend ขาขึ้น — สามารถพิจารณาถือต่อ',
+    }
   }
 
-  // Volume trend ยืนยัน
-  if (ind.volPct !== undefined) {
-    if (ind.volPct > 20 && ind.pctChange > 0)  adj += 3   // Volume สูง + ราคาขึ้น
-    if (ind.volPct > 20 && ind.pctChange < 0)  adj -= 3   // Volume สูง + ราคาลง
+  // Phase 3: Bearish Breakout — ADX > 20 + ราคาต่ำกว่า EMA21 + -DI > +DI
+  if (
+    adx !== null && adx >= 20 &&
+    price !== null && ema21h4 !== null && price < ema21h4 &&
+    plusDI !== null && minusDI !== null && minusDI > plusDI
+  ) {
+    const strength = Math.min(100, Math.round(
+      ((adx - 20) / 40) * 50 +
+      ((minusDI - plusDI) / 30) * 30 +
+      (price < ema21 ? 20 : 0)
+    ))
+    return {
+      phase: 'bearish',
+      label: 'กำลังดิ่งลง (Bearish Breakout)',
+      sublabel: 'Trend ขาลง — แรงขายครอบงำ',
+      icon: '📉',
+      color: '#9b2226',
+      bg: '#fff1f2',
+      border: '#fca5a5',
+      barColor: '#ef4444',
+      strength,
+      detail: `ADX ${adx?.toFixed(1)} · -DI ${minusDI?.toFixed(1)} > +DI ${plusDI?.toFixed(1)} · Price < EMA21`,
+      hint: adx > 40 ? 'Trend ลงแรงมาก — หลีกเลี่ยงการซื้อ' : 'Trend ขาลง — ระวัง ไม่ควรซื้อ',
+    }
   }
 
-  // BTC นำ/ตาม
-  if (ind.btcChg !== undefined) {
-    adj += ind.btcChg > 0 ? 2 : -2
+  // Phase กลาง: ADX > 20 แต่สัญญาณยังขัดแย้ง
+  return {
+    phase: 'mixed',
+    label: 'สัญญาณผสม (Transition)',
+    sublabel: 'ADX เริ่มแข็ง แต่ทิศทางยังไม่ชัด',
+    icon: '🔄',
+    color: '#7b6914',
+    bg: '#fffbeb',
+    border: '#fde68a',
+    barColor: '#f59e0b',
+    strength: Math.round(adx / 60 * 100),
+    detail: `ADX ${adx?.toFixed(1)} · Price${price > ema21h4 ? ' > ' : ' < '}EMA21 · DI${plusDI > minusDI ? ' Bullish' : ' Bearish'}`,
+    hint: 'รอสัญญาณยืนยันก่อนตัดสินใจ',
   }
-
-  // Fear & Greed
-  if (ind.fg !== undefined) {
-    if (ind.fg < 20)       adj += 4   // Extreme Fear → contrarian bullish
-    else if (ind.fg > 75)  adj -= 4   // Extreme Greed → contrarian bearish
-  }
-
-  const prob = Math.round(Math.min(Math.max(base + adj, 15), 85))
-  return prob
 }
 
 // ─────────────────────────────────────────────
-// MULTI-ASSET PRICES — เพิ่ม BTC/USD
+// calcProb24h
+// ─────────────────────────────────────────────
+function calcProb24h(score, ind) {
+  if (!ind) return 50
+  let base = (score - 50) * 0.6 + 50
+  let adj = 0
+  if (ind.rsi !== undefined) {
+    if (ind.rsi > 65)      adj -= 5
+    else if (ind.rsi < 35) adj += 7
+    else if (ind.rsi > 55) adj += 3
+    else if (ind.rsi < 45) adj -= 3
+  }
+  if (ind.pctChange !== undefined) {
+    if (ind.pctChange > 5)       adj -= 4
+    else if (ind.pctChange > 2)  adj += 2
+    else if (ind.pctChange < -5) adj += 5
+    else if (ind.pctChange < -2) adj -= 2
+  }
+  if (ind.volPct !== undefined) {
+    if (ind.volPct > 20 && ind.pctChange > 0) adj += 3
+    if (ind.volPct > 20 && ind.pctChange < 0) adj -= 3
+  }
+  if (ind.btcChg !== undefined) adj += ind.btcChg > 0 ? 2 : -2
+  if (ind.fg !== undefined) {
+    if (ind.fg < 20)      adj += 4
+    else if (ind.fg > 75) adj -= 4
+  }
+  return Math.round(Math.min(Math.max(base + adj, 15), 85))
+}
+
+// ─────────────────────────────────────────────
+// MULTI-ASSET PRICES
 // ─────────────────────────────────────────────
 const ASSETS = [
-  { label: 'BTC/USD',  binance: 'BTCUSDT',  thbRate: false, decimals: 0  },  // [NEW]
-  { label: 'BTC/THB',  binance: 'BTCUSDT',  thbRate: true,  decimals: 0  },
-  { label: 'USDT/THB', binance: null,        isUSDT: true,   decimals: 2  },
-  { label: 'DOGE/THB', binance: 'DOGEUSDT', thbRate: true,  decimals: 4  },
-  { label: 'XRP/THB',  binance: 'XRPUSDT',  thbRate: true,  decimals: 2  },
-  { label: 'XAU/USD',  binance: 'PAXGUSDT', isGold: true,   decimals: 2  },
+  { label: 'BTC/USD',  binance: 'BTCUSDT',  thbRate: false, decimals: 0 },
+  { label: 'BTC/THB',  binance: 'BTCUSDT',  thbRate: true,  decimals: 0 },
+  { label: 'USDT/THB', binance: null,        isUSDT: true,   decimals: 2 },
+  { label: 'DOGE/THB', binance: 'DOGEUSDT', thbRate: true,  decimals: 4 },
+  { label: 'XRP/THB',  binance: 'XRPUSDT',  thbRate: true,  decimals: 2 },
+  { label: 'XAU/USD',  binance: 'PAXGUSDT', isGold: true,   decimals: 2 },
 ]
 
 async function fetchUSDTHB() {
@@ -92,36 +165,21 @@ function MultiAssetPrices() {
       setLoading(true)
       try {
         const thbRate = await fetchUSDTHB()
-        // dedupe symbols สำหรับ fetch (BTCUSDT ใช้ 2 ครั้ง)
         const uniqueSymbols = [...new Set(ASSETS.filter(a => a.binance).map(a => a.binance))]
         const results = await Promise.all(
-          uniqueSymbols.map(s =>
-            fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`)
-              .then(r => r.json())
-          )
+          uniqueSymbols.map(s => fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json()))
         )
         const priceMap = {}
         uniqueSymbols.forEach((s, i) => {
-          priceMap[s] = {
-            price: parseFloat(results[i].lastPrice),
-            chg:   parseFloat(results[i].priceChangePercent),
-          }
+          priceMap[s] = { price: parseFloat(results[i].lastPrice), chg: parseFloat(results[i].priceChangePercent) }
         })
-
         const rows = ASSETS.map(a => {
           if (a.isUSDT) return { label: a.label, price: thbRate, chg: null, unit: ' ', decimals: a.decimals }
           const b = priceMap[a.binance]
           if (!b) return null
           const price = a.thbRate ? b.price * thbRate : b.price
-          return {
-            label: a.label,
-            price,
-            chg: b.chg,
-            unit: (!a.thbRate) ? '$ ' : ' ',
-            decimals: a.decimals,
-          }
+          return { label: a.label, price, chg: b.chg, unit: !a.thbRate ? '$ ' : ' ', decimals: a.decimals }
         }).filter(Boolean)
-
         setData(rows)
       } catch (e) { console.error(e) }
       finally { setLoading(false) }
@@ -131,11 +189,7 @@ function MultiAssetPrices() {
     return () => clearInterval(t)
   }, [])
 
-  if (loading) return (
-    <div style={{ textAlign: 'center', color: '#b0a898', fontSize: 13, padding: 12 }}>
-      กำลังโหลดราคา...
-    </div>
-  )
+  if (loading) return <div style={{ textAlign: 'center', color: '#b0a898', fontSize: 13, padding: 12 }}>กำลังโหลดราคา...</div>
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -147,14 +201,9 @@ function MultiAssetPrices() {
         const bd  = isNeutral ? '#ede9e0' : up ? '#bbf7d0' : '#fecaca'
         return (
           <div key={i} style={{ background: bg, border: `1px solid ${bd}`, borderRadius: 10, padding: '10px 12px' }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#a09880', letterSpacing: 0.5, marginBottom: 4 }}>
-              {item.label}
-            </div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#a09880', letterSpacing: 0.5, marginBottom: 4 }}>{item.label}</div>
             <div style={{ fontSize: item.price > 999999 ? 16 : 18, fontWeight: 800, color: col, letterSpacing: -0.3 }}>
-              {item.unit}{item.price.toLocaleString('en', {
-                minimumFractionDigits: item.decimals,
-                maximumFractionDigits: item.decimals,
-              })}
+              {item.unit}{item.price.toLocaleString('en', { minimumFractionDigits: item.decimals, maximumFractionDigits: item.decimals })}
             </div>
             {!isNeutral && (
               <div style={{ fontSize: 13, fontWeight: 700, color: col, marginTop: 2 }}>
@@ -192,10 +241,7 @@ function SecTitle({ children }) {
 
 function IndRow({ dotColor, label, value, valueColor, bar, last }) {
   return (
-    <div style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '8px 0', borderBottom: last ? 'none' : '1px solid #f2ede4'
-    }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: last ? 'none' : '1px solid #f2ede4' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 110 }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0, display: 'inline-block' }} />
         <span style={{ fontSize: 13, color: '#5a5248', fontWeight: 500 }}>{label}</span>
@@ -237,6 +283,123 @@ function Countdown({ sec, total }) {
 }
 
 // ─────────────────────────────────────────────
+// MARKET PHASE CARD COMPONENT
+// ─────────────────────────────────────────────
+function MarketPhaseCard({ phase }) {
+  if (!phase) return null
+
+  // Phase icons map
+  const phaseIcons = {
+    squeeze: { left: '📊', right: '⏳' },
+    bullish: { left: '📈', right: '💪' },
+    bearish: { left: '📉', right: '⚠️' },
+    mixed:   { left: '🔄', right: '❓' },
+  }
+  const icons = phaseIcons[phase.phase] || { left: '📊', right: '?' }
+
+  return (
+    <div style={{
+      margin: '8px 16px',
+      background: phase.bg,
+      border: `1.5px solid ${phase.border}`,
+      borderRadius: 14,
+      overflow: 'hidden',
+    }}>
+      {/* Header bar */}
+      <div style={{
+        background: phase.color,
+        padding: '10px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 20 }}>{icons.left}</span>
+          <div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: 0.5 }}>
+              MARKET PHASE
+            </div>
+            <div style={{ fontSize: 16, color: '#fff', fontWeight: 800 }}>
+              {phase.label}
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>ความแรง</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+            {phase.strength}%
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: '12px 16px' }}>
+
+        {/* Strength bar */}
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontSize: 13, color: phase.color, fontWeight: 700 }}>Trend Strength</span>
+            <span style={{ fontSize: 13, color: phase.color, fontWeight: 700 }}>{phase.strength}%</span>
+          </div>
+          <div style={{ height: 8, background: `${phase.border}`, borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{
+              width: `${phase.strength}%`, height: '100%',
+              background: phase.barColor, borderRadius: 4,
+              transition: 'width 1s ease',
+            }} />
+          </div>
+        </div>
+
+        {/* 3 state pills */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          {[
+            { key: 'squeeze', label: '🟡 Squeeze',         active: phase.phase === 'squeeze' },
+            { key: 'bullish', label: '🟢 Bullish Breakout', active: phase.phase === 'bullish' },
+            { key: 'bearish', label: '🔴 Bearish Breakout', active: phase.phase === 'bearish' },
+          ].map(p => (
+            <div key={p.key} style={{
+              flex: 1, textAlign: 'center',
+              padding: '5px 4px',
+              borderRadius: 8,
+              fontSize: 10,
+              fontWeight: p.active ? 800 : 500,
+              background: p.active ? phase.color : 'rgba(0,0,0,0.04)',
+              color: p.active ? '#fff' : '#a09880',
+              border: p.active ? `1px solid ${phase.color}` : '1px solid #e5e0d8',
+              transition: 'all 0.3s',
+            }}>
+              {p.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Detail */}
+        <div style={{
+          fontSize: 12, color: '#6b5e4e',
+          background: 'rgba(0,0,0,0.04)',
+          borderRadius: 8, padding: '8px 10px',
+          marginBottom: 8, lineHeight: 1.6,
+        }}>
+          {phase.detail}
+        </div>
+
+        {/* Hint */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '7px 10px',
+          background: phase.bg,
+          borderRadius: 8,
+          border: `1px solid ${phase.border}`,
+        }}>
+          <span style={{ fontSize: 14 }}>{icons.right}</span>
+          <span style={{ fontSize: 12, color: phase.color, fontWeight: 700 }}>
+            {phase.hint}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
 // MAIN APP
 // ─────────────────────────────────────────────
 export default function App() {
@@ -248,10 +411,40 @@ export default function App() {
   const [breakdown, setBreakdown]       = useState(null)
   const [news, setNews]                 = useState(null)
   const [newsLoading, setNewsLoading]   = useState(false)
+  const [newsLastFetch, setNewsLastFetch] = useState(null)   // [NEW] เวลาที่ดึงข่าวครั้งล่าสุด
   const [lastUpdate, setLastUpdate]     = useState(null)
   const [countdown, setCountdown]       = useState(AUTO_REFRESH_SEC)
-  const timerRef = useRef(null)
-  const countRef = useRef(null)
+  const timerRef    = useRef(null)
+  const countRef    = useRef(null)
+  const newsTimerRef = useRef(null)   // [NEW] timer แยกสำหรับข่าว
+
+  // ── ดึงข่าว — ใช้ in-memory ref ไม่พึ่ง localStorage ────────
+  const newsParamsRef = useRef(null)   // เก็บ params ล่าสุดสำหรับ timer
+
+  const doFetchNews = useCallback(async (price, fg, btcDom) => {
+    setNewsLoading(true)
+    try {
+      const n = await fetchNewsAnalysis(price, fg, btcDom)
+      setNews(n)
+      setNewsLastFetch(new Date())
+    } catch (e) {
+      console.warn('News fetch failed:', e)
+    } finally {
+      setNewsLoading(false)
+    }
+  }, [])
+
+  const startNewsTimer = useCallback((price, fg, btcDom) => {
+    newsParamsRef.current = { price, fg, btcDom }
+    clearInterval(newsTimerRef.current)
+    newsTimerRef.current = setInterval(() => {
+      // ดึงข่าวใหม่ทุก 6 ชม. โดยอัตโนมัติ
+      if (newsParamsRef.current) {
+        const { price, fg, btcDom } = newsParamsRef.current
+        doFetchNews(price, fg, btcDom)
+      }
+    }, NEWS_REFRESH_MS)
+  }, [doFetchNews])
 
   const load = useCallback(async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true)
@@ -274,8 +467,7 @@ export default function App() {
       const rsi     = calcRSI(closes.slice(-30), 14)
       const atr     = calcATR(highs.slice(-30), lows.slice(-30), closes.slice(-30), 14)
       const { adx, plusDI, minusDI } = calcADX(highs.slice(-60), lows.slice(-60), closes.slice(-60), 14)
-
-      const { support, resistance } = findSwings(highs, lows, 100, 3)
+      const { support, resistance }  = findSwings(highs, lows, 100, 3)
       const { ratio: volRatio, pct: volPct } = calcVolumeTrend(vols)
 
       const btcChg = btcCloses.length >= 25
@@ -296,15 +488,23 @@ export default function App() {
       setBreakdown(calcScoreBreakdown(indicators))
       setLastUpdate(new Date())
 
-      setNewsLoading(true)
-      fetchNewsAnalysis(price, fg, btcDom).then(n => { setNews(n); setNewsLoading(false) })
+      // ดึงข่าว:
+      //  - ครั้งแรก (isRefresh=false) → ดึงเสมอ
+      //  - กด Refresh ราคา (isRefresh=true) → ดึงข่าวถ้า timer ครบ 6 ชม.แล้ว
+      const nowMs = Date.now()
+      const lastFetchMs = newsTimerRef._lastFetch ?? 0
+      if (!isRefresh || (nowMs - lastFetchMs) >= NEWS_REFRESH_MS) {
+        doFetchNews(price, fg, btcDom)
+        newsTimerRef._lastFetch = nowMs
+      }
+      startNewsTimer(price, fg, btcDom)
     } catch (e) {
       setError('โหลดไม่ได้: ' + e.message)
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [doFetchNews, startNewsTimer])
 
   const startTimers = useCallback(() => {
     clearInterval(timerRef.current)
@@ -316,10 +516,19 @@ export default function App() {
 
   useEffect(() => {
     load().then(startTimers)
-    return () => { clearInterval(timerRef.current); clearInterval(countRef.current) }
+    return () => {
+      clearInterval(timerRef.current)
+      clearInterval(countRef.current)
+      clearInterval(newsTimerRef.current)   // [NEW] cleanup news timer ด้วย
+    }
   }, [])
 
   const handleRefresh = () => { load(true); startTimers() }
+
+  // บังคับดึงข่าวใหม่ทันที
+  const handleForceNewsRefresh = useCallback(() => {
+    if (ind) doFetchNews(ind.price, ind.fg, ind.btcDom)
+  }, [ind, doFetchNews])
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, background: '#f2ede4' }}>
@@ -329,13 +538,12 @@ export default function App() {
     </div>
   )
 
-  const sig       = score !== null ? getSignal(score) : null
-  const up        = (ind?.pctChange ?? 0) >= 0
-  const newsScore = news?.news_score ?? (news?.news ? `${news.news.filter(n => n.tag === 'บวก').length}/${news.news.length}` : '—')
-
-  // [FIX] prob24h คำนวณแยกจาก score โดยใช้ Momentum จริง
-  const probUp   = calcProb24h(score ?? 50, ind)
-  const probDown = 100 - probUp
+  const sig        = score !== null ? getSignal(score) : null
+  const up         = (ind?.pctChange ?? 0) >= 0
+  const newsScore  = news?.news_score ?? (news?.news ? `${news.news.filter(n => n.tag === 'บวก').length}/${news.news.length}` : '—')
+  const probUp     = calcProb24h(score ?? 50, ind)
+  const probDown   = 100 - probUp
+  const marketPhase = calcMarketPhase(ind)  // [NEW]
 
   return (
     <div style={{ background: '#f2ede4', minHeight: '100vh', maxWidth: 520, margin: '0 auto', paddingBottom: 36, fontFamily: "-apple-system,'Helvetica Neue','Segoe UI',sans-serif" }}>
@@ -378,7 +586,10 @@ export default function App() {
         </div>
       )}
 
-      {/* PREDICTION — [FIX] ใช้ probUp จาก calcProb24h แยกจาก score */}
+      {/* [NEW] MARKET PHASE BLOCK */}
+      <MarketPhaseCard phase={marketPhase} />
+
+      {/* PREDICTION */}
       <Card>
         <SecTitle>คาดการณ์ราคาในอีก 24 ช.ม.</SecTitle>
         <div style={{ display: 'flex', gap: 12 }}>
@@ -391,8 +602,7 @@ export default function App() {
             <div style={{ fontSize: 24, fontWeight: 800, color: '#b91c1c' }}>{probDown}%</div>
           </div>
         </div>
-        {/* แสดงเหตุผลสั้นๆ */}
-        <div style={{ fontSize: 11, color: '#a09880', marginTop: 8, textAlign: 'center' }}>
+        <div style={{ fontSize: 12, color: '#a09880', marginTop: 8, textAlign: 'center' }}>
           ประเมินจาก RSI {ind?.rsi?.toFixed(0)} · ราคา{up ? 'ขึ้น' : 'ลง'} {Math.abs(ind?.pctChange ?? 0).toFixed(1)}% · Volume {(ind?.volPct ?? 0) >= 0 ? '+' : ''}{ind?.volPct ?? 0}%
         </div>
       </Card>
@@ -401,9 +611,9 @@ export default function App() {
       <Card style={{ padding: '12px 8px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
           {[
-            { label: 'กลัว & โลภ',    value: ind?.fg ?? '—',                    color: fgColor(ind?.fg ?? 50) },
-            { label: 'ส่วนแบ่ง BTC',  value: `${ind?.btcDom?.toFixed(1)}%`,      color: '#4a4035', border: true },
-            { label: 'ผันผวน (H1)',    value: `$${ind?.atr?.toFixed(2) ?? '—'}`, color: '#4a4035' },
+            { label: 'กลัว & โลภ',   value: ind?.fg ?? '—',                   color: fgColor(ind?.fg ?? 50) },
+            { label: 'ส่วนแบ่ง BTC', value: `${ind?.btcDom?.toFixed(1)}%`,     color: '#4a4035', border: true },
+            { label: 'ผันผวน ATR',  value: `$${ind?.atr?.toFixed(2) ?? '—'}`, color: '#4a4035' },
           ].map((s, i) => (
             <div key={i} style={{ textAlign: 'center', padding: '4px 6px', borderLeft: s.border ? '1px solid #ede9e0' : 'none', borderRight: s.border ? '1px solid #ede9e0' : 'none' }}>
               <div style={{ fontSize: 14, color: '#a09880', fontWeight: 600, letterSpacing: 0.3 }}>{s.label}</div>
@@ -459,9 +669,34 @@ export default function App() {
 
       {/* NEWS */}
       <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <SecTitle>ข่าว &amp; MACRO 24 ชั่วโมงล่าสุด</SecTitle>
-          {newsLoading && <span style={{ fontSize: 10, color: '#b0a898', marginTop: -10 }}>กำลังโหลด...</span>}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+          <div>
+            <SecTitle>ข่าว &amp; MACRO 24 ชั่วโมงล่าสุด</SecTitle>
+            {/* [NEW] แสดงเวลาที่ดึงข่าวล่าสุด */}
+            {newsLastFetch && !newsLoading && (
+              <div style={{ fontSize: 12, color: '#b0a898', marginTop: -6, marginBottom: 4 }}>
+                อัปเดตข่าว: {newsLastFetch.toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}
+                {' · '}อัปเดตทุก 6 ชม.
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {newsLoading && <span style={{ fontSize: 11, color: '#b0a898' }}>กำลังโหลด...</span>}
+            {/* [NEW] ปุ่มบังคับดึงข่าวใหม่ */}
+            <button
+              onClick={handleForceNewsRefresh}
+              disabled={newsLoading}
+              title="บังคับดึงข่าวใหม่ทันที"
+              style={{
+                background: 'none', border: '1px solid #ddd8cc', borderRadius: 8,
+                padding: '3px 8px', fontSize: 11, color: '#a09880',
+                cursor: newsLoading ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit', opacity: newsLoading ? 0.5 : 1,
+              }}
+            >
+              {newsLoading ? '⟳' : '↺ ดึงข่าวใหม่'}
+            </button>
+          </div>
         </div>
         {(news?.news ?? []).map((n, i) => (
           <div key={i} style={{
