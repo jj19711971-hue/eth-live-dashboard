@@ -1,6 +1,6 @@
 // ============================================================
-//  logic.js — ETH Trading Dashboard · Indicator Engine
-//  v2 — Fixed: ADX scoring, Score consistency
+//  logic.js — ETH Dashboard · Indicator Engine  (Final)
+//  เพิ่ม: macroScore จาก EUR/USDT + Gold เข้า calcForecastScore
 // ============================================================
 
 export function calcEMA(prices, period) {
@@ -59,7 +59,9 @@ export function calcADX(highs, lows, closes, period = 14) {
     for (let i = p; i < arr.length; i++) { s = s - s / p + arr[i]; r.push(s) }
     return r
   }
-  const sTR = smooth(trs, period), sPDM = smooth(pDMs, period), sMDM = smooth(mDMs, period)
+  const sTR  = smooth(trs, period)
+  const sPDM = smooth(pDMs, period)
+  const sMDM = smooth(mDMs, period)
   const dxArr = sTR.map((tr, i) => {
     const pdi = tr ? (sPDM[i] / tr) * 100 : 0
     const mdi = tr ? (sMDM[i] / tr) * 100 : 0
@@ -67,40 +69,34 @@ export function calcADX(highs, lows, closes, period = 14) {
   })
   const last = dxArr.slice(-period)
   return {
-    adx: last.reduce((a, b) => a + b.dx, 0) / last.length,
-    plusDI: dxArr[dxArr.length - 1].pdi,
+    adx:     last.reduce((a, b) => a + b.dx, 0) / last.length,
+    plusDI:  dxArr[dxArr.length - 1].pdi,
     minusDI: dxArr[dxArr.length - 1].mdi,
   }
 }
 
-// ── FIX #6: Swing S/R จาก pivot points จริง ──────────────────
-// หา swing high/low โดยดูว่าแท่งกลางสูง/ต่ำกว่า N แท่งรอบข้าง
+// ── Swing S/R จาก Pivot Points จริง ──────────────────────────
 export function findSwings(highs, lows, lookback = 50, pivotBars = 3) {
-  const n = Math.min(highs.length, lookback)
+  const n      = Math.min(highs.length, lookback)
   const hSlice = highs.slice(-n)
   const lSlice = lows.slice(-n)
-
-  let swingHighs = [], swingLows = []
+  const swingHighs = [], swingLows = []
 
   for (let i = pivotBars; i < hSlice.length - pivotBars; i++) {
-    // Swing High: แท่ง i สูงกว่าทุกแท่งในช่วง pivotBars รอบข้าง
-    const isSwingHigh = hSlice.slice(i - pivotBars, i).every(v => v < hSlice[i]) &&
-                        hSlice.slice(i + 1, i + pivotBars + 1).every(v => v < hSlice[i])
-    // Swing Low: แท่ง i ต่ำกว่าทุกแท่งในช่วง pivotBars รอบข้าง
-    const isSwingLow  = lSlice.slice(i - pivotBars, i).every(v => v > lSlice[i]) &&
-                        lSlice.slice(i + 1, i + pivotBars + 1).every(v => v > lSlice[i])
-
-    if (isSwingHigh) swingHighs.push(hSlice[i])
-    if (isSwingLow)  swingLows.push(lSlice[i])
+    const isH = hSlice.slice(i - pivotBars, i).every(v => v < hSlice[i]) &&
+                hSlice.slice(i + 1, i + pivotBars + 1).every(v => v < hSlice[i])
+    const isL = lSlice.slice(i - pivotBars, i).every(v => v > lSlice[i]) &&
+                lSlice.slice(i + 1, i + pivotBars + 1).every(v => v > lSlice[i])
+    if (isH) swingHighs.push(hSlice[i])
+    if (isL) swingLows.push(lSlice[i])
   }
 
-  // ถ้าหา pivot ไม่ได้ (ข้อมูลน้อยไป) ใช้ max/min เป็น fallback
-  const currentPrice = highs[highs.length - 1]
+  const cur = highs[highs.length - 1]
   const resistance = swingHighs.length > 0
-    ? Math.min(...swingHighs.filter(h => h >= currentPrice * 0.995)) || Math.max(...swingHighs)
+    ? (Math.min(...swingHighs.filter(h => h >= cur * 0.995)) || Math.max(...swingHighs))
     : Math.max(...hSlice)
   const support = swingLows.length > 0
-    ? Math.max(...swingLows.filter(l => l <= currentPrice * 1.005)) || Math.min(...swingLows)
+    ? (Math.max(...swingLows.filter(l => l <= cur * 1.005)) || Math.min(...swingLows))
     : Math.min(...lSlice)
 
   return { resistance, support }
@@ -108,68 +104,72 @@ export function findSwings(highs, lows, lookback = 50, pivotBars = 3) {
 
 export function calcVolumeTrend(volumes) {
   if (!volumes || volumes.length < 20) return { ratio: 1, pct: 0 }
-  // FIX: ใช้ 3 candle ล่าสุด vs avg 20 เพื่อให้ responsive กว่า
   const recent = volumes.slice(-3).reduce((a, b) => a + b, 0) / 3
   const avg    = volumes.slice(-20).reduce((a, b) => a + b, 0) / 20
   const ratio  = avg ? recent / avg : 1
   return { ratio, pct: Math.round((ratio - 1) * 100) }
 }
 
-// ── FIX #2: ADX ต้องสอดคล้องกับทิศทาง DI ───────────────────
+// ── Forecast Score (0–100) ────────────────────────────────────
+// เพิ่ม macroScore จาก EUR/USDT + Gold proxy
 export function calcForecastScore(ind) {
   let s = 50
   const { ema9, ema21, ema55, ema21h4, price, rsi, adx,
-          plusDI, minusDI, volRatio, fg, btcChg, btcDom } = ind
+          plusDI, minusDI, volRatio, fg, btcChg, btcDom,
+          macroData } = ind
 
-  // --- Layer 1: EMA Trend (max ±20)
-  if (ema9 && ema21)   s += ema9 > ema21   ? 8  : -6
-  if (ema21 && ema55)  s += ema21 > ema55  ? 5  : -4
-  if (ema21h4 && price) s += price > ema21h4 ? 7 : -5
+  // Layer 1: EMA Trend (±20)
+  if (ema9 && ema21)    s += ema9  > ema21   ? 8  : -6
+  if (ema21 && ema55)   s += ema21 > ema55   ? 5  : -4
+  if (ema21h4 && price) s += price > ema21h4 ? 7  : -5
 
-  // --- Layer 2: Momentum RSI (max ±8)
+  // Layer 2: RSI Momentum (±8)
   if (rsi) {
-    if      (rsi > 50 && rsi < 70) s += 6   // Momentum ดี ไม่ overbought
-    else if (rsi >= 70)             s -= 3   // Overbought เริ่มระวัง
-    else if (rsi <= 30)             s -= 8   // Oversold ใน downtrend = bearish
-    else if (rsi > 30 && rsi <= 45) s -= 3   // Weak momentum
-    // rsi 45-50 = neutral, ไม่บวกไม่ลบ
+    if      (rsi > 50 && rsi < 70) s += 6
+    else if (rsi >= 70)             s -= 3
+    else if (rsi <= 30)             s -= 8
+    else if (rsi > 30 && rsi <= 45) s -= 3
   }
 
-  // --- Layer 3: ADX + DI (max ±10) — FIX: ADX ต้องดู DI ด้วย
+  // Layer 3: ADX + DI ทิศทาง (±10)
   if (adx && plusDI && minusDI) {
-    const bullishTrend = plusDI > minusDI
+    const bull = plusDI > minusDI
     if (adx > 25) {
-      // Trend แรง: บวก/ลบตาม DI
-      s += bullishTrend ? 5 : -5
-      if (adx > 40) s += bullishTrend ? 3 : -3  // Trend แรงมาก
+      s += bull ? 5 : -5
+      if (adx > 40) s += bull ? 3 : -3
     } else {
-      // Trend อ่อน: DI ยังมีน้ำหนักเล็กน้อย
-      s += bullishTrend ? 2 : -2
+      s += bull ? 2 : -2
     }
   } else if (plusDI && minusDI) {
     s += plusDI > minusDI ? 2 : -2
   }
 
-  // --- Layer 4: Volume (max ±5)
+  // Layer 4: Volume (±5)
   if (volRatio !== undefined) {
-    if      (volRatio > 1.5) s += 5   // Volume สูงมาก
+    if      (volRatio > 1.5) s += 5
     else if (volRatio > 1.2) s += 3
-    else if (volRatio < 0.6) s -= 3   // Volume แห้ง
+    else if (volRatio < 0.6) s -= 3
     else if (volRatio < 0.8) s -= 1
   }
 
-  // --- Layer 5: Sentiment (max ±5)
+  // Layer 5: Sentiment F&G (±5)
   if (fg !== undefined) {
-    if      (fg >= 55 && fg <= 74) s += 4   // Greed ปกติ ดี
-    else if (fg >= 75)              s -= 2   // Extreme Greed = เริ่มระวัง
-    else if (fg >= 40 && fg < 55)  s += 1   // Neutral-ish
-    else if (fg >= 25 && fg < 40)  s -= 3   // Fear
-    else if (fg < 25)               s -= 5   // Extreme Fear
+    if      (fg >= 55 && fg <= 74) s += 4
+    else if (fg >= 75)              s -= 2
+    else if (fg >= 40 && fg < 55)  s += 1
+    else if (fg >= 25 && fg < 40)  s -= 3
+    else if (fg < 25)               s -= 5
   }
 
-  // --- Layer 6: BTC Macro (max ±5)
+  // Layer 6: BTC Macro (±5)
   if (btcChg !== undefined) s += btcChg > 1 ? 4 : btcChg > 0 ? 2 : btcChg > -1 ? -1 : -3
   if (btcDom !== undefined) s += btcDom < 52 ? 2 : btcDom > 58 ? -2 : 0
+
+  // Layer 7: [NEW] Macro USD/Gold Proxy (±5)
+  // ใช้ macroScore ที่คำนวณจาก EUR/USDT และ PAXG ใน api.js
+  if (macroData?.macroScore !== undefined) {
+    s += macroData.macroScore
+  }
 
   return Math.max(0, Math.min(100, Math.round(s)))
 }
@@ -177,27 +177,27 @@ export function calcForecastScore(ind) {
 // ── Signal label ──────────────────────────────────────────────
 export function getSignal(score) {
   if (score >= 70) return {
-    th: 'Bullish — ควรพิจารณาซื้อ',
+    th:  'Bullish — ควรพิจารณาซื้อ',
     sub: 'Signal ส่วนใหญ่เป็น Bullish — Trend ขึ้น Momentum แข็ง ADX ถ้าพ้น 25 จะชัดเจนมาก',
     color: '#2d6a4f', bg: '#d8f3dc', border: '#b7e4c7', icon: '▲'
   }
   if (score >= 55) return {
-    th: 'Slightly Bullish — ระวัง',
+    th:  'Slightly Bullish — ระวัง',
     sub: 'สัญญาณบวกอ่อน — ยังไม่ชัดเจน รอการยืนยันเพิ่มเติม รอให้ค่า ADX พุ่งสูงขึ้นเกิน 25 เพื่อยืนยันขาขึ้น',
     color: '#52796f', bg: '#e8f5e9', border: '#c8e6c9', icon: '↗'
   }
   if (score >= 45) return {
-    th: 'Neutral — รอสัญญาณ',
+    th:  'Neutral — รอสัญญาณ',
     sub: 'ตลาดไม่มีทิศทางชัดเจน — รอปัจจัยใหม่ๆมากระตุ้น รอดู Breakout ทิศทางราคาไปแนวทาง ขึ้นหรือลง',
     color: '#7b6914', bg: '#fff9e6', border: '#ffe08a', icon: '→'
   }
   if (score >= 30) return {
-    th: 'Slightly Bearish — ระวัง',
+    th:  'Slightly Bearish — ระวัง',
     sub: 'สัญญาณลบอ่อน — ควรระวังการซื้อ ควรรอยืนยันเพิ่มเติม',
     color: '#9c4a1a', bg: '#fff3e0', border: '#ffcc80', icon: '↘'
   }
   return {
-    th: 'Bearish — ควรระวัง',
+    th:  'Bearish — ควรระวัง',
     sub: 'Signal ส่วนใหญ่เป็น Bearish — ตรวจสอบและรอจังหวะดีกว่านี้',
     color: '#9b2226', bg: '#fde8e8', border: '#f5c2c7', icon: '▼'
   }
@@ -218,31 +218,33 @@ export function fgColor(v) {
   return '#9b2226'
 }
 
-// ── Score breakdown สำหรับแสดง Summary ที่ถูกต้อง ────────────
+// ── Score Breakdown ──────────────────────────────────────────
 export function calcScoreBreakdown(ind) {
-  const { ema9, ema21, ema55, ema21h4, price, rsi, adx, plusDI, minusDI, fg, btcChg } = ind
+  const { ema9, ema21, ema55, ema21h4, price, rsi, adx, plusDI, minusDI, fg, btcChg, macroData } = ind
 
   const tech = [
-    ema9 && ema21 && ema9 > ema21,           // EMA 9>21
-    ema21 && ema55 && ema21 > ema55,          // EMA 21>55
-    ema21h4 && price && price > ema21h4,      // H4 filter
-    rsi && rsi > 50 && rsi < 70,              // RSI momentum
-    adx && plusDI && plusDI > minusDI,        // DI direction
-    adx && adx > 25,                          // ADX strength
+    !!(ema9 && ema21 && ema9 > ema21),
+    !!(ema21 && ema55 && ema21 > ema55),
+    !!(ema21h4 && price && price > ema21h4),
+    !!(rsi && rsi > 50 && rsi < 70),
+    !!(adx && plusDI && plusDI > minusDI),
+    !!(adx && adx > 25),
   ]
   const sent = [
-    fg && fg >= 45 && fg < 75,               // F&G ok
-    btcChg !== undefined && btcChg > 0,       // BTC leading
-    ind.btcDom !== undefined && ind.btcDom < 56, // BTC dom
-    ind.volRatio !== undefined && ind.volRatio > 1.0, // Volume ok
+    !!(fg && fg >= 45 && fg < 75),
+    btcChg !== undefined && btcChg > 0,
+    ind.btcDom !== undefined && ind.btcDom < 56,
+    ind.volRatio !== undefined && ind.volRatio > 1.0,
+    // [NEW] เพิ่ม macro เป็น sentiment อีก 1 ข้อ
+    !!(macroData && macroData.macroScore >= 0),
   ]
 
   const techPass = tech.filter(Boolean).length
   const sentPass = sent.filter(Boolean).length
 
   return {
-    tech: `${techPass}/${tech.length}`,
-    sent: `${sentPass}/${sent.length}`,
+    tech:   `${techPass}/${tech.length}`,
+    sent:   `${sentPass}/${sent.length}`,
     techOk: techPass >= 4,
     sentOk: sentPass >= 3,
   }
