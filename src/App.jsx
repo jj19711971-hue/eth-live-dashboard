@@ -315,7 +315,7 @@ function MarketPhaseCard({ phase }) {
           <span style={{ fontSize: 20 }}>{icons.left}</span>
           <div>
             <div style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: 0.5 }}>
-              MARKET PHASE
+              MARKET PHASE Confirmation
             </div>
             <div style={{ fontSize: 14, color: '#fff', fontWeight: 800 }}>
               {phase.label}
@@ -336,7 +336,7 @@ function MarketPhaseCard({ phase }) {
         {/* Strength bar */}
         <div style={{ marginBottom: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 13, color: phase.color, fontWeight: 700 }}>Trend Strength</span>
+            <span style={{ fontSize: 13, color: phase.color, fontWeight: 700 }}>Breakout ราคาทะลุผ่านแนวรับหรือแนวต้านสำคัญ</span>
             <span style={{ fontSize: 13, color: phase.color, fontWeight: 700 }}>{phase.strength}%</span>
           </div>
           <div style={{ height: 8, background: `${phase.border}`, borderRadius: 4, overflow: 'hidden' }}>
@@ -533,7 +533,7 @@ export default function App() {
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, background: '#f2ede4' }}>
       <div style={{ fontSize: 36, animation: 'spin 1s linear infinite' }}>⟳</div>
-      <div style={{ color: '#888', fontSize: 13 }}>กำลังโหลดข้อมูลตลาด ETH...</div>
+      <div style={{ color: '#888', fontSize: 14 }}>กำลังโหลดข้อมูลตลาด ETH...</div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
