@@ -25,7 +25,7 @@ function calcMarketPhase(ind) {
       color: '#c07a30', bg: '#fffbeb', border: '#fde68a', barColor: '#f59e0b',
       strength: Math.round((20 - adx) / 20 * 100),
       detail: `ADX ${adx?.toFixed(1)} < 20 — ตลาดไม่มีทิศทางชัดเจน · ${volRatio < 0.9 ? 'Volume แห้ง ยืนยัน Squeeze' : 'Volume ปกติ'}`,
-      hint: 'รอสัญญาณ Breakout ตลาดยังไม่เลือกช้าง',
+      hint: 'สภาวะตลาดสะสมพลัง ความผันผวนลดลงและ ADX บ่งบอกถึงสภาวะขาดทิศทาง ราคากำลังบีบตัวในกรอบแคบ แรงซื้อและแรงขายอยู่ในจุดสมดุลชั่วคราว ปริมาณการซื้อขายปกติ แนะนำให้ เฝ้าระวัง และรอการเลือกทางที่ชัดเจน ',
     }
   }
   if (adx !== null && adx >= 20 && price > ema21h4 && plusDI > minusDI) {
@@ -38,7 +38,7 @@ function calcMarketPhase(ind) {
       color: '#2d6a4f', bg: '#f0fdf4', border: '#86efac', barColor: '#22c55e',
       strength,
       detail: `ADX ${adx?.toFixed(1)} · +DI ${plusDI?.toFixed(1)} > -DI ${minusDI?.toFixed(1)} · Price > EMA21`,
-      hint: adx > 40 ? 'Trend แข็งมาก — ระวัง Overbought ซื้อมากเกินไป' : 'Trend ขาขึ้น — สามารถพิจารณาถือต่อ',
+      hint: adx > 40 ? 'Trend แข็งมาก — ระวัง Overbought' : 'Trend ขาขึ้น — แนวโน้มขาขึ้นรุนแรง โมเมนตัมพุ่งสูงจนเข้าเขตซื้อมากเกินไป (Overbought) มีความเสี่ยงในการย่อตัวระยะสั้น โครงสร้างราคายังคงรักษาทิศทางขาขึ้นได้ดี แรงซื้อมีความต่อเนื่องและมั่นคง',
     }
   }
   if (adx !== null && adx >= 20 && price < ema21h4 && minusDI > plusDI) {
@@ -51,7 +51,7 @@ function calcMarketPhase(ind) {
       color: '#9b2226', bg: '#fff1f2', border: '#fca5a5', barColor: '#ef4444',
       strength,
       detail: `ADX ${adx?.toFixed(1)} · -DI ${minusDI?.toFixed(1)} > +DI ${plusDI?.toFixed(1)} · Price < EMA21`,
-      hint: adx > 40 ? 'Trend ลงแรงมาก — หลีกเลี่ยงการซื้อ' : 'Trend ขาลง — ระวัง ไม่ควรซื้อ แรงขายยังคุมตลาด',
+      hint: adx > 40 ? 'Trend ลงแรงมาก — หลีกเลี่ยงการซื้อ' : 'Trend ขาลง — ระวัง ไม่ควรซื้อ สภาวะตลาดขาลงชัดเจน แรงขายคุมตลาดสมบูรณ์ ราคาหลุดแนวรับสำคัญและยังอยู่ใต้เส้นค่าเฉลี่ย แนะนำให้ชะลอการลงทุนจนกว่าโครงสร้างราคาจะเริ่มยกตัว เพื่อลดความเสี่ยง',
     }
   }
   return {
@@ -509,14 +509,15 @@ export default function App() {
 
         {/* Signal detail + Macro summary */}
         <div style={{ fontSize: 15, color: '#4a4035', lineHeight: 1.8, padding: '10px 14px', background: '#f8f5ef', borderRadius: 10 }}>
-          {`ประเมินจาก Indicator — แนวรับ $${ind?.support?.toFixed(0)} · แนวต้าน $${ind?.resistance?.toFixed(0)}`}
+          {`กรอบราคาสำคัญที่ต้องจับตา — แนวรับ $${ind?.support?.toFixed(0)} · แนวต้าน $${ind?.resistance?.toFixed(0)}`}
           {macroSummary && (
             <div style={{ fontSize: 15, color: '#7b6914', marginTop: 4, fontWeight: 600 }}>
               🌐 MACRO สภาพแวดล้อมมหาภาค ภาวะตลาดโลก  {macroSummary}
             </div>
           )}
           <div style={{ fontSize: 13, color: '#a09880', marginTop: 6 }}>
-            ⚠️ คำเตือน: นี่เป็นข้อมูลทางเทคนิค ไม่ใช่คำแนะนำการลงทุน
+            ⚠️ อธิบาย: Risk-on นักลงทุนมีมุมมองในแง่บวกต่อเศรษฐกิจ เชื่อว่าตลาดจะเติบโต จึงย้ายเงินจากสินทรัพย์ที่ปลอดภัยไปลงทุนในสินทรัพย์ที่ให้ผลตอบแทนสูงกว่า 
+Risk-off ตลาดเต็มไปด้วยความกังวล เช่น มีข่าวสงคราม, ตัวเลขเศรษฐกิจแย่กว่าคาด หรือเงินเฟ้อพุ่งสูง นักลงทุนจะเทขายสินทรัพย์เสี่ยงเพื่อรักษาเงินต้น 
           </div>
         </div>
       </Card>
