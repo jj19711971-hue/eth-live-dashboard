@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import GaugeRing from './components/GaugeRing.jsx'
 import HBar from './components/HBar.jsx'
-import { fetchMarketData, fetchNewsAnalysis } from './logic/api.js'
+import { fetchMarketData } from './logic/api.js'
 import {
   calcEMA, calcRSI, calcATR, calcADX,
   findSwings, calcVolumeTrend,
@@ -10,7 +10,6 @@ import {
 } from './logic/logic.js'
 
 const AUTO_REFRESH_SEC = 30
-const NEWS_REFRESH_MS  = 6 * 60 * 60 * 1000   // 6 ชั่วโมง
 
 // ─────────────────────────────────────────────────────────────
 // MARKET PHASE — Breakout / Squeeze Detection
@@ -52,7 +51,7 @@ function calcMarketPhase(ind) {
       color: '#9b2226', bg: '#fff1f2', border: '#fca5a5', barColor: '#ef4444',
       strength,
       detail: `ADX ${adx?.toFixed(1)} · -DI ${minusDI?.toFixed(1)} > +DI ${plusDI?.toFixed(1)} · Price < EMA21`,
-      hint: adx > 40 ? 'Trend ลงแรงมาก — หลีกเลี่ยงการซื้อ' : 'Trend ขาลง — ระวัง ไม่ควรซื้อ',
+      hint: adx > 40 ? 'Trend ลงแรงมาก — หลีกเลี่ยงการซื้อ' : 'Trend ขาลง — ระวัง ไม่ควรซื้อ แรงขายยังคุมตลาด',
     }
   }
   return {
@@ -93,7 +92,6 @@ function calcProb24h(score, ind) {
     if (ind.fg < 20)      adj += 4
     else if (ind.fg > 75) adj -= 4
   }
-  // [NEW] Macro adjustment
   if (ind.macroData?.macroScore !== undefined) adj += ind.macroData.macroScore * 0.5
   return Math.round(Math.min(Math.max(base + adj, 15), 85))
 }
@@ -109,14 +107,12 @@ const ASSETS = [
   { label: 'XRP/THB',  binance: 'XRPUSDT',  thbRate: true,  decimals: 2 },
   { label: 'XAU/USD',  binance: 'PAXGUSDT', isGold: true,   decimals: 2 },
 ]
-
 async function fetchUSDTHB() {
   try {
     const r = await fetch('https://api.exchangerate-api.com/v4/latest/USD')
     return (await r.json()).rates?.THB ?? 34.5
   } catch { return 34.5 }
 }
-
 function MultiAssetPrices() {
   const [data, setData]       = useState([])
   const [loading, setLoading] = useState(true)
@@ -142,7 +138,6 @@ function MultiAssetPrices() {
     const t = setInterval(load, 30000)
     return () => clearInterval(t)
   }, [])
-
   if (loading) return <div style={{ textAlign: 'center', color: '#b0a898', fontSize: 13, padding: 12 }}>กำลังโหลดราคา...</div>
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -166,7 +161,7 @@ function MultiAssetPrices() {
 }
 
 // ─────────────────────────────────────────────
-// SHARED UI COMPONENTS
+// SHARED UI
 // ─────────────────────────────────────────────
 function Card({ children, style = {} }) {
   return <div style={{ background: '#ffffff', borderRadius: 14, margin: '8px 16px', padding: '14px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #ede9e0', ...style }}>{children}</div>
@@ -189,10 +184,6 @@ function IndRow({ dotColor, label, value, valueColor, bar, last }) {
         : <span style={{ fontSize: 13, fontWeight: 700, color: valueColor }}>{value}</span>}
     </div>
   )
-}
-function Tag({ label }) {
-  const bull = label === 'บวก'
-  return <span style={{ fontSize: 10, padding: '2px 9px', borderRadius: 10, flexShrink: 0, background: bull ? '#e6f4ea' : '#fff3e0', color: bull ? '#2d6a4f' : '#c0621a', fontWeight: 600, marginLeft: 6 }}>{label}</span>
 }
 function Countdown({ sec, total }) {
   const r = 10, circ = 2 * Math.PI * r
@@ -240,11 +231,7 @@ function MarketPhaseCard({ phase }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-          {[
-            { key: 'squeeze', label: '🟡 Squeeze' },
-            { key: 'bullish', label: '🟢 Bullish Breakout' },
-            { key: 'bearish', label: '🔴 Bearish Breakout' },
-          ].map(p => (
+          {[{ key: 'squeeze', label: '🟡 Squeeze' }, { key: 'bullish', label: '🟢 Bullish Breakout' }, { key: 'bearish', label: '🔴 Bearish Breakout' }].map(p => (
             <div key={p.key} style={{ flex: 1, textAlign: 'center', padding: '5px 4px', borderRadius: 8, fontSize: 10, fontWeight: p.key === phase.phase ? 800 : 500, background: p.key === phase.phase ? phase.color : 'rgba(0,0,0,0.04)', color: p.key === phase.phase ? '#fff' : '#a09880', border: p.key === phase.phase ? `1px solid ${phase.color}` : '1px solid #e5e0d8' }}>{p.label}</div>
           ))}
         </div>
@@ -259,105 +246,19 @@ function MarketPhaseCard({ phase }) {
 }
 
 // ─────────────────────────────────────────────
-// [NEW] MACRO PANEL — USD / Gold / Risk Mode
-// ─────────────────────────────────────────────
-function MacroPanel({ macroData, newsData }) {
-  if (!macroData) return null
-
-  const riskColor = macroData.riskMode.includes('Risk-on') ? '#2d6a4f'
-    : macroData.riskMode.includes('Risk-off') ? '#9b2226' : '#7b6914'
-  const riskBg    = macroData.riskMode.includes('Risk-on') ? '#f0fdf4'
-    : macroData.riskMode.includes('Risk-off') ? '#fff1f2' : '#fffbeb'
-  const riskBd    = macroData.riskMode.includes('Risk-on') ? '#86efac'
-    : macroData.riskMode.includes('Risk-off') ? '#fca5a5' : '#fde68a'
-
-  // macro_tag จากข่าวหรือจาก macroData
-  const macroTag  = newsData?.macro_tag ?? macroData.riskMode
-
-  return (
-    <Card style={{ padding: '12px 16px' }}>
-      <SecTitle>🌐 Macro สภาพแวดล้อมมหาภาค</SecTitle>
-
-      {/* Risk Mode Banner */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: riskBg, border: `1px solid ${riskBd}`, borderRadius: 10, marginBottom: 10 }}>
-        <div>
-          <div style={{ fontSize: 11, color: '#a09880', fontWeight: 600, marginBottom: 2 }}>ภาวะตลาดโลก (Risk Mode)</div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: riskColor }}>{macroTag}</div>
-        </div>
-        <div style={{ fontSize: 28 }}>
-          {macroData.riskMode.includes('Risk-on') ? '🟢' : macroData.riskMode.includes('Risk-off') ? '🔴' : '🟡'}
-        </div>
-      </div>
-
-      {/* USD & Gold rows */}
-      <IndRow
-        dotColor={macroData.eurChg < 0 ? '#c0392b' : '#2d6a4f'}
-        label="USD Strength (EUR proxy)"
-        value={macroData.usdStatus}
-        valueColor={macroData.eurChg < -0.3 ? '#c0392b' : macroData.eurChg > 0.3 ? '#2d6a4f' : '#7b6914'}
-      />
-      <IndRow
-        dotColor={macroData.goldChg > 0.5 ? '#c0392b' : '#2d6a4f'}
-        label="Gold (PAXG proxy)"
-        value={macroData.goldStatus}
-        valueColor={macroData.goldChg > 0.5 ? '#c0392b' : macroData.goldChg < 0 ? '#2d6a4f' : '#7b6914'}
-        last
-      />
-
-      {/* Explanation */}
-      <div style={{ fontSize: 11, color: '#a09880', marginTop: 8, padding: '6px 10px', background: '#f8f5ef', borderRadius: 8, lineHeight: 1.6 }}>
-        💡 EUR/USDT ↓ = USD แข็ง = กดดัน Crypto · Gold ↑ = ความกังวล = Risk-off
-        {macroData.macroScore !== 0 && (
-          <span style={{ color: macroData.macroScore > 0 ? '#2d6a4f' : '#c0392b', fontWeight: 700 }}>
-            {' '}· Macro Score: {macroData.macroScore > 0 ? '+' : ''}{macroData.macroScore} pts
-          </span>
-        )}
-      </div>
-    </Card>
-  )
-}
-
-// ─────────────────────────────────────────────
 // MAIN APP
 // ─────────────────────────────────────────────
 export default function App() {
-  const [loading, setLoading]             = useState(true)
-  const [refreshing, setRefreshing]       = useState(false)
-  const [error, setError]                 = useState(null)
-  const [ind, setInd]                     = useState(null)
-  const [score, setScore]                 = useState(null)
-  const [breakdown, setBreakdown]         = useState(null)
-  const [news, setNews]                   = useState(null)
-  const [newsLoading, setNewsLoading]     = useState(false)
-  const [newsLastFetch, setNewsLastFetch] = useState(null)
-  const [lastUpdate, setLastUpdate]       = useState(null)
-  const [countdown, setCountdown]         = useState(AUTO_REFRESH_SEC)
-  const timerRef     = useRef(null)
-  const countRef     = useRef(null)
-  const newsTimerRef = useRef(null)
-  const newsParamsRef = useRef(null)
-
-  // ── ดึงข่าว — ไม่พึ่ง localStorage ─────────────────────────
-  const doFetchNews = useCallback(async (price, fg, btcDom, macroData) => {
-    setNewsLoading(true)
-    try {
-      const n = await fetchNewsAnalysis(price, fg, btcDom, macroData)
-      setNews(n)
-      setNewsLastFetch(new Date())
-    } catch (e) { console.warn('News fetch failed:', e) }
-    finally { setNewsLoading(false) }
-  }, [])
-
-  const startNewsTimer = useCallback((price, fg, btcDom, macroData) => {
-    newsParamsRef.current = { price, fg, btcDom, macroData }
-    clearInterval(newsTimerRef.current)
-    newsTimerRef.current = setInterval(() => {
-      if (newsParamsRef.current) {
-        const { price, fg, btcDom, macroData } = newsParamsRef.current
-        doFetchNews(price, fg, btcDom, macroData)
-      }
-    }, NEWS_REFRESH_MS)
-  }, [doFetchNews])
+  const [loading, setLoading]       = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError]           = useState(null)
+  const [ind, setInd]               = useState(null)
+  const [score, setScore]           = useState(null)
+  const [breakdown, setBreakdown]   = useState(null)
+  const [lastUpdate, setLastUpdate] = useState(null)
+  const [countdown, setCountdown]   = useState(AUTO_REFRESH_SEC)
+  const timerRef = useRef(null)
+  const countRef = useRef(null)
 
   const load = useCallback(async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true)
@@ -393,30 +294,20 @@ export default function App() {
         volRatio, volPct, fg, btcChg, btcDom,
         support, resistance, ethThb,
         fundingLabel, fundingColor,
-        macroData,   // [NEW] ส่ง macroData เข้า indicators
+        macroData,
       }
 
       setInd(indicators)
-      const s = calcForecastScore(indicators)
-      setScore(s)
+      setScore(calcForecastScore(indicators))
       setBreakdown(calcScoreBreakdown(indicators))
       setLastUpdate(new Date())
-
-      // ดึงข่าว: ครั้งแรกดึงเสมอ, refresh ราคา = ข้ามถ้ายังไม่ครบ 6 ชม.
-      const nowMs       = Date.now()
-      const lastFetchMs = newsTimerRef._lastFetch ?? 0
-      if (!isRefresh || (nowMs - lastFetchMs) >= NEWS_REFRESH_MS) {
-        doFetchNews(price, fg, btcDom, macroData)
-        newsTimerRef._lastFetch = nowMs
-      }
-      startNewsTimer(price, fg, btcDom, macroData)
     } catch (e) {
       setError('โหลดไม่ได้: ' + e.message)
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [doFetchNews, startNewsTimer])
+  }, [])
 
   const startTimers = useCallback(() => {
     clearInterval(timerRef.current)
@@ -428,14 +319,10 @@ export default function App() {
 
   useEffect(() => {
     load().then(startTimers)
-    return () => { clearInterval(timerRef.current); clearInterval(countRef.current); clearInterval(newsTimerRef.current) }
+    return () => { clearInterval(timerRef.current); clearInterval(countRef.current) }
   }, [])
 
   const handleRefresh = () => { load(true); startTimers() }
-
-  const handleForceNewsRefresh = useCallback(() => {
-    if (ind) doFetchNews(ind.price, ind.fg, ind.btcDom, ind.macroData)
-  }, [ind, doFetchNews])
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, background: '#f2ede4' }}>
@@ -447,10 +334,14 @@ export default function App() {
 
   const sig         = score !== null ? getSignal(score) : null
   const up          = (ind?.pctChange ?? 0) >= 0
-  const newsScore   = news?.news_score ?? (news?.news ? `${news.news.filter(n => n.tag === 'บวก').length}/${news.news.length}` : '—')
   const probUp      = calcProb24h(score ?? 50, ind)
   const probDown    = 100 - probUp
   const marketPhase = calcMarketPhase(ind)
+
+  // Macro summary สำหรับ signal_detail
+  const macroSummary = ind?.macroData
+    ? `USD ${ind.macroData.usdStatus} · Gold ${ind.macroData.goldStatus} · ${ind.macroData.riskMode}`
+    : null
 
   return (
     <div style={{ background: '#f2ede4', minHeight: '100vh', maxWidth: 520, margin: '0 auto', paddingBottom: 36, fontFamily: "-apple-system,'Helvetica Neue','Segoe UI',sans-serif" }}>
@@ -573,54 +464,60 @@ export default function App() {
           last />
       </Card>
 
-      {/* [NEW] MACRO PANEL */}
-      <MacroPanel macroData={ind?.macroData} newsData={news} />
-
-      {/* NEWS */}
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-          <div>
-            <SecTitle>ข่าว &amp; MACRO 24 ชั่วโมงล่าสุด</SecTitle>
-            {newsLastFetch && !newsLoading && (
-              <div style={{ fontSize: 12, color: '#b0a898', marginTop: -6, marginBottom: 4 }}>
-                อัปเดตข่าว: {newsLastFetch.toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })} · อัปเดตทุก 6 ชม.
-              </div>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {newsLoading && <span style={{ fontSize: 11, color: '#b0a898' }}>กำลังโหลด...</span>}
-            <button onClick={handleForceNewsRefresh} disabled={newsLoading} style={{ background: 'none', border: '1px solid #ddd8cc', borderRadius: 8, padding: '3px 8px', fontSize: 11, color: '#a09880', cursor: newsLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: newsLoading ? 0.5 : 1 }}>
-              {newsLoading ? '⟳' : '↺ ดึงข่าวใหม่'}
-            </button>
-          </div>
-        </div>
-        {(news?.news ?? []).map((n, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 0', borderBottom: i < (news.news.length - 1) ? '1px solid #f2ede4' : 'none' }}>
-            <span style={{ fontSize: 11, color: '#b0a898', width: 62, flexShrink: 0, paddingTop: 1, fontWeight: 600 }}>{n.source}</span>
-            <span style={{ fontSize: 12, color: '#2a2520', flex: 1, lineHeight: 1.5 }}>{n.headline}</span>
-            <Tag label={n.tag} />
-          </div>
-        ))}
-      </Card>
-
-      {/* SUMMARY */}
+      {/* SUMMARY — Technical / Sentiment / Macro (แทน News) */}
       <Card>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           {[
-            { label: 'Technical', val: breakdown?.tech ?? '—', ok: breakdown?.techOk },
-            { label: 'Sentiment', val: breakdown?.sent ?? '—', ok: breakdown?.sentOk },
-            { label: 'News',      val: newsScore,              ok: news ? news.news?.filter(n => n.tag === 'บวก').length >= 2 : null },
+            {
+              label: 'Technical',
+              val:   breakdown?.tech   ?? '—',
+              ok:    breakdown?.techOk,
+            },
+            {
+              label: 'Sentiment',
+              val:   breakdown?.sent   ?? '—',
+              ok:    breakdown?.sentOk,
+            },
+            {
+              // Macro แทน News
+              label: 'Macro',
+              val:   breakdown?.macro  ?? '—',
+              ok:    breakdown?.macroOk,
+              sub:   breakdown?.macroLabel,   // Risk-on 🟢 / Risk-off 🔴 / Neutral 🟡
+            },
           ].map((item, i) => (
-            <div key={i} style={{ flex: 1, textAlign: 'center', padding: '8px 4px', borderRadius: 10, background: item.ok === null ? '#f8f5ef' : item.ok ? '#f0faf4' : '#fdf0f0' }}>
+            <div key={i} style={{
+              flex: 1, textAlign: 'center', padding: '8px 4px', borderRadius: 10,
+              background: item.ok === null ? '#f8f5ef' : item.ok ? '#f0faf4' : '#fdf0f0',
+            }}>
               <div style={{ fontSize: 13, color: '#a09880', fontWeight: 600 }}>{item.label}</div>
-              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2, color: item.ok === null ? '#a09880' : item.ok ? '#2d6a4f' : '#c0392b' }}>{item.val}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: item.ok === null ? '#a09880' : item.ok ? '#52b788' : '#c0392b' }}>{item.ok === null ? '—' : item.ok ? '✓' : '✗'}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2, color: item.ok === null ? '#a09880' : item.ok ? '#2d6a4f' : '#c0392b' }}>
+                {item.val}
+              </div>
+              {/* แสดง Risk mode label เล็กๆ ใต้ตัวเลข Macro */}
+              {item.sub && (
+                <div style={{ fontSize: 10, color: item.ok ? '#2d6a4f' : '#c0392b', marginTop: 1, fontWeight: 600 }}>
+                  {item.sub}
+                </div>
+              )}
+              <div style={{ fontSize: 13, fontWeight: 700, color: item.ok === null ? '#a09880' : item.ok ? '#52b788' : '#c0392b' }}>
+                {item.ok === null ? '—' : item.ok ? '✓' : '✗'}
+              </div>
             </div>
           ))}
         </div>
+
+        {/* Signal detail + Macro summary */}
         <div style={{ fontSize: 15, color: '#4a4035', lineHeight: 1.8, padding: '10px 14px', background: '#f8f5ef', borderRadius: 10 }}>
-          {news?.signal_detail ?? `ประเมินจาก Indicator — แนวรับ $${ind?.support?.toFixed(0)} · แนวต้าน $${ind?.resistance?.toFixed(0)}`}
-          <div style={{ fontSize: 13, color: '#a09880', marginTop: 6 }}>⚠️ คำเตือน: นี่เป็นข้อมูลทางเทคนิค ไม่ใช่คำแนะนำการลงทุน</div>
+          {`ประเมินจาก Indicator — แนวรับ $${ind?.support?.toFixed(0)} · แนวต้าน $${ind?.resistance?.toFixed(0)}`}
+          {macroSummary && (
+            <div style={{ fontSize: 15, color: '#7b6914', marginTop: 4, fontWeight: 600 }}>
+              🌐 MACRO สภาพแวดล้อมมหาภาค ภาวะตลาดโลก  {macroSummary}
+            </div>
+          )}
+          <div style={{ fontSize: 13, color: '#a09880', marginTop: 6 }}>
+            ⚠️ คำเตือน: นี่เป็นข้อมูลทางเทคนิค ไม่ใช่คำแนะนำการลงทุน
+          </div>
         </div>
       </Card>
 

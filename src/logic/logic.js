@@ -1,6 +1,7 @@
 // ============================================================
 //  logic.js — ETH Dashboard · Indicator Engine  (Final)
-//  เพิ่ม: macroScore จาก EUR/USDT + Gold เข้า calcForecastScore
+//  macroScore จาก EUR/USDT + Gold เข้า calcForecastScore
+//  calcScoreBreakdown: ใช้ Macro แทน News
 // ============================================================
 
 export function calcEMA(prices, period) {
@@ -75,13 +76,11 @@ export function calcADX(highs, lows, closes, period = 14) {
   }
 }
 
-// ── Swing S/R จาก Pivot Points จริง ──────────────────────────
 export function findSwings(highs, lows, lookback = 50, pivotBars = 3) {
   const n      = Math.min(highs.length, lookback)
   const hSlice = highs.slice(-n)
   const lSlice = lows.slice(-n)
   const swingHighs = [], swingLows = []
-
   for (let i = pivotBars; i < hSlice.length - pivotBars; i++) {
     const isH = hSlice.slice(i - pivotBars, i).every(v => v < hSlice[i]) &&
                 hSlice.slice(i + 1, i + pivotBars + 1).every(v => v < hSlice[i])
@@ -90,7 +89,6 @@ export function findSwings(highs, lows, lookback = 50, pivotBars = 3) {
     if (isH) swingHighs.push(hSlice[i])
     if (isL) swingLows.push(lSlice[i])
   }
-
   const cur = highs[highs.length - 1]
   const resistance = swingHighs.length > 0
     ? (Math.min(...swingHighs.filter(h => h >= cur * 0.995)) || Math.max(...swingHighs))
@@ -98,7 +96,6 @@ export function findSwings(highs, lows, lookback = 50, pivotBars = 3) {
   const support = swingLows.length > 0
     ? (Math.max(...swingLows.filter(l => l <= cur * 1.005)) || Math.min(...swingLows))
     : Math.min(...lSlice)
-
   return { resistance, support }
 }
 
@@ -111,12 +108,10 @@ export function calcVolumeTrend(volumes) {
 }
 
 // ── Forecast Score (0–100) ────────────────────────────────────
-// เพิ่ม macroScore จาก EUR/USDT + Gold proxy
 export function calcForecastScore(ind) {
   let s = 50
   const { ema9, ema21, ema55, ema21h4, price, rsi, adx,
-          plusDI, minusDI, volRatio, fg, btcChg, btcDom,
-          macroData } = ind
+          plusDI, minusDI, volRatio, fg, btcChg, btcDom, macroData } = ind
 
   // Layer 1: EMA Trend (±20)
   if (ema9 && ema21)    s += ema9  > ema21   ? 8  : -6
@@ -131,7 +126,7 @@ export function calcForecastScore(ind) {
     else if (rsi > 30 && rsi <= 45) s -= 3
   }
 
-  // Layer 3: ADX + DI ทิศทาง (±10)
+  // Layer 3: ADX + DI direction (±10)
   if (adx && plusDI && minusDI) {
     const bull = plusDI > minusDI
     if (adx > 25) {
@@ -152,7 +147,7 @@ export function calcForecastScore(ind) {
     else if (volRatio < 0.8) s -= 1
   }
 
-  // Layer 5: Sentiment F&G (±5)
+  // Layer 5: Fear & Greed (±5)
   if (fg !== undefined) {
     if      (fg >= 55 && fg <= 74) s += 4
     else if (fg >= 75)              s -= 2
@@ -165,16 +160,12 @@ export function calcForecastScore(ind) {
   if (btcChg !== undefined) s += btcChg > 1 ? 4 : btcChg > 0 ? 2 : btcChg > -1 ? -1 : -3
   if (btcDom !== undefined) s += btcDom < 52 ? 2 : btcDom > 58 ? -2 : 0
 
-  // Layer 7: [NEW] Macro USD/Gold Proxy (±5)
-  // ใช้ macroScore ที่คำนวณจาก EUR/USDT และ PAXG ใน api.js
-  if (macroData?.macroScore !== undefined) {
-    s += macroData.macroScore
-  }
+  // Layer 7: Macro USD/Gold Proxy (±5)
+  if (macroData?.macroScore !== undefined) s += macroData.macroScore
 
   return Math.max(0, Math.min(100, Math.round(s)))
 }
 
-// ── Signal label ──────────────────────────────────────────────
 export function getSignal(score) {
   if (score >= 70) return {
     th:  'Bullish — ควรพิจารณาซื้อ',
@@ -218,10 +209,13 @@ export function fgColor(v) {
   return '#9b2226'
 }
 
-// ── Score Breakdown ──────────────────────────────────────────
+// ── Score Breakdown ───────────────────────────────────────────
+// SUMMARY: Technical / Sentiment / Macro (แทน News)
 export function calcScoreBreakdown(ind) {
-  const { ema9, ema21, ema55, ema21h4, price, rsi, adx, plusDI, minusDI, fg, btcChg, macroData } = ind
+  const { ema9, ema21, ema55, ema21h4, price, rsi, adx,
+          plusDI, minusDI, fg, btcChg, macroData } = ind
 
+  // Technical — 6 เงื่อนไข
   const tech = [
     !!(ema9 && ema21 && ema9 > ema21),
     !!(ema21 && ema55 && ema21 > ema55),
@@ -230,22 +224,42 @@ export function calcScoreBreakdown(ind) {
     !!(adx && plusDI && plusDI > minusDI),
     !!(adx && adx > 25),
   ]
+
+  // Sentiment — 4 เงื่อนไข
   const sent = [
     !!(fg && fg >= 45 && fg < 75),
     btcChg !== undefined && btcChg > 0,
     ind.btcDom !== undefined && ind.btcDom < 56,
     ind.volRatio !== undefined && ind.volRatio > 1.0,
-    // [NEW] เพิ่ม macro เป็น sentiment อีก 1 ข้อ
-    !!(macroData && macroData.macroScore >= 0),
   ]
 
-  const techPass = tech.filter(Boolean).length
-  const sentPass = sent.filter(Boolean).length
+  // Macro — 4 เงื่อนไข (แทน News ใน Summary)
+  // ใช้ข้อมูลจาก macroData ที่คำนวณจาก EUR/USDT และ PAXG จริง
+  const macro = [
+    !!(macroData && macroData.macroScore > 0),           // Risk-on mode
+    !!(macroData && !macroData.riskMode?.includes('Risk-off')),  // ไม่ Risk-off
+    !!(macroData && macroData.eurChg > -0.3),            // USD ไม่แข็งมาก
+    !!(macroData && macroData.goldChg < 0.5),            // ทองไม่พุ่ง
+  ]
+
+  const techPass  = tech.filter(Boolean).length
+  const sentPass  = sent.filter(Boolean).length
+  const macroPass = macro.filter(Boolean).length
+
+  // macroOk: macroScore >= 0 (ไม่ Risk-off) และผ่านอย่างน้อย 2/4
+  const macroOk = macroPass >= 2 && (macroData?.macroScore ?? 0) >= 0
 
   return {
-    tech:   `${techPass}/${tech.length}`,
-    sent:   `${sentPass}/${sent.length}`,
-    techOk: techPass >= 4,
-    sentOk: sentPass >= 3,
+    tech:    `${techPass}/${tech.length}`,
+    sent:    `${sentPass}/${sent.length}`,
+    macro:   macroData ? `${macroPass}/${macro.length}` : '—',
+    techOk:  techPass >= 4,
+    sentOk:  sentPass >= 3,
+    macroOk: macroData ? macroOk : null,
+    // label ย่อสำหรับแสดงใน Summary box
+    macroLabel: macroData
+      ? (macroData.riskMode.includes('Risk-on')  ? 'Risk-on 🟢'  :
+         macroData.riskMode.includes('Risk-off') ? 'Risk-off 🔴' : 'Neutral 🟡')
+      : null,
   }
 }
