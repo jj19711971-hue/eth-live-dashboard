@@ -60,7 +60,7 @@ function calcMarketPhase(ind) {
     color: '#7b6914', bg: '#fffbeb', border: '#fde68a', barColor: '#f59e0b',
     strength: Math.round((adx ?? 0) / 60 * 100),
     detail: `ADX ${adx?.toFixed(1)} · Price${price > ema21h4 ? ' > ' : ' < '}EMA21 · DI${plusDI > minusDI ? ' Bullish' : ' Bearish'}`,
-    hint: 'รอสัญญาณยืนยันก่อนตัดสินใจ',
+    hint: 'สัญญาณผสมและผันผวน ช่วงเปลี่ยนผ่านเทรนด์  โมเมนตัมเริ่มเพิ่มขึ้นแต่ทิศทางราคายังขัดแย้งกัน ความเสี่ยงในการเกิดสัญญาณหลอกมีสูง แนะนำให้ ชะลอการตัดสินใจ จนกว่าโครงสร้างราคาและตัวบ่งชี้จะเคลื่อนที่ไปในทิศทางเดียวกัน',
   }
 }
 
@@ -199,6 +199,104 @@ function Countdown({ sec, total }) {
 }
 
 // ─────────────────────────────────────────────
+// TREND CHANGE TIMESTAMP HELPERS
+// ─────────────────────────────────────────────
+
+// แปลง phase key → ชื่อภาษาไทย + emoji
+const PHASE_LABELS = {
+  bullish: 'Bullish Breakout 🚀',
+  bearish: 'Bearish Breakout 📉',
+  squeeze: 'Squeeze ⚡',
+  mixed:   'Transition 🔄',
+}
+
+// สีประจำ phase สำหรับ badge timestamp
+const PHASE_BADGE_COLORS = {
+  bullish: { bg: '#f0fdf4', border: '#86efac', text: '#2d6a4f' },
+  bearish: { bg: '#fff1f2', border: '#fca5a5', text: '#9b2226' },
+  squeeze: { bg: '#fffbeb', border: '#fde68a', text: '#c07a30' },
+  mixed:   { bg: '#fffbeb', border: '#fde68a', text: '#7b6914' },
+}
+
+// format วันที่+เวลา 24 ชม. (dd/mm/yyyy hh:mm)
+function formatDateTime24(date) {
+  if (!date) return '—'
+  const pad = n => String(n).padStart(2, '0')
+  const d   = pad(date.getDate())
+  const mo  = pad(date.getMonth() + 1)
+  const y   = date.getFullYear()
+  const h   = pad(date.getHours())
+  const mi  = pad(date.getMinutes())
+  return `${d}/${mo}/${y} ${h}:${mi}`
+}
+
+// คำนวณ "นานแค่ไหนแล้ว" จาก timestamp จนถึงปัจจุบัน
+function formatElapsed(date) {
+  if (!date) return ''
+  const diffMs  = Date.now() - date.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1)   return 'เพิ่งเปลี่ยน'
+  if (diffMin < 60)  return `${diffMin} นาทีที่แล้ว`
+  const diffH = Math.floor(diffMin / 60)
+  const remM  = diffMin % 60
+  if (diffH < 24) return remM > 0 ? `${diffH} ชม. ${remM} นาทีที่แล้ว` : `${diffH} ชม.ที่แล้ว`
+  const diffD = Math.floor(diffH / 24)
+  return `${diffD} วันที่แล้ว`
+}
+
+// Component แสดง badge ประวัติการเปลี่ยน trend
+function TrendChangeHistory({ history }) {
+  if (!history || history.length === 0) return null
+  return (
+    <div style={{ marginTop: 10, borderTop: '1px solid rgba(0,0,0,0.07)', paddingTop: 8 }}>
+      <div style={{ fontSize: 11, color: '#a09880', fontWeight: 700, letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' }}>
+        ประวัติการเปลี่ยนเทรนด์
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {history.map((entry, i) => {
+          const badge = PHASE_BADGE_COLORS[entry.phase] ?? PHASE_BADGE_COLORS.mixed
+          const isLatest = i === 0
+          return (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '6px 10px',
+              borderRadius: 8,
+              background: isLatest ? badge.bg : '#f8f5ef',
+              border: `1px solid ${isLatest ? badge.border : '#ede9e0'}`,
+              opacity: isLatest ? 1 : 0.72,
+            }}>
+              {/* Dot */}
+              <div style={{
+                width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                background: isLatest ? badge.text : '#c9c4bc',
+              }} />
+              {/* Phase name */}
+              <div style={{ fontSize: 12, fontWeight: isLatest ? 800 : 600, color: isLatest ? badge.text : '#7a6f64', flex: 1, minWidth: 0 }}>
+                {PHASE_LABELS[entry.phase] ?? entry.phase}
+                {isLatest && (
+                  <span style={{ fontSize: 10, fontWeight: 600, color: badge.text, marginLeft: 6, opacity: 0.8 }}>
+                    ● ปัจจุบัน
+                  </span>
+                )}
+              </div>
+              {/* Timestamp + elapsed */}
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: isLatest ? badge.text : '#8a7f74', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatDateTime24(entry.timestamp)}
+                </div>
+                <div style={{ fontSize: 10, color: '#b0a898', marginTop: 1 }}>
+                  {formatElapsed(entry.timestamp)}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
 // MARKET PHASE CARD
 // ─────────────────────────────────────────────
 function MarketPhaseCard({ phase }) {
@@ -260,6 +358,14 @@ export default function App() {
   const timerRef = useRef(null)
   const countRef = useRef(null)
 
+  // ── Trend Change Tracking ─────────────────────────────────
+  // prevPhase: phase key ก่อนหน้า เพื่อเปรียบเทียบ
+  const prevPhaseRef = useRef(null)
+  // trendHistory: array of { phase, timestamp } เรียงจากล่าสุดไปเก่า (max 5 รายการ)
+  const [trendHistory, setTrendHistory] = useState([])
+  // trendChangedAt: timestamp ของการเปลี่ยน phase ล่าสุด
+  const [trendChangedAt, setTrendChangedAt] = useState(null)
+
   const load = useCallback(async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true)
     setError(null)
@@ -295,6 +401,21 @@ export default function App() {
         support, resistance, ethThb,
         fundingLabel, fundingColor,
         macroData,
+      }
+
+      // ── ตรวจจับการเปลี่ยน Market Phase ───────────────────
+      const newPhaseObj = calcMarketPhase(indicators)
+      const newPhaseKey = newPhaseObj?.phase ?? null
+
+      if (newPhaseKey && newPhaseKey !== prevPhaseRef.current) {
+        const now = new Date()
+        // บันทึก history ล่าสุดไว้ไม่เกิน 5 รายการ
+        setTrendHistory(prev => [
+          { phase: newPhaseKey, timestamp: now },
+          ...prev,
+        ].slice(0, 5))
+        setTrendChangedAt(now)
+        prevPhaseRef.current = newPhaseKey
       }
 
       setInd(indicators)
@@ -343,6 +464,11 @@ export default function App() {
     ? `USD ${ind.macroData.usdStatus} · Gold ${ind.macroData.goldStatus} · ${ind.macroData.riskMode}`
     : null
 
+  // ── ข้อมูล badge เปลี่ยน trend สำหรับ SIGNAL section ───
+  const currentPhaseBadge = marketPhase
+    ? (PHASE_BADGE_COLORS[marketPhase.phase] ?? PHASE_BADGE_COLORS.mixed)
+    : null
+
   return (
     <div style={{ background: '#f2ede4', minHeight: '100vh', maxWidth: 520, margin: '0 auto', paddingBottom: 36, fontFamily: "-apple-system,'Helvetica Neue','Segoe UI',sans-serif" }}>
 
@@ -369,9 +495,13 @@ export default function App() {
         </div>
       </Card>
 
-      {/* SIGNAL */}
+      {/* ────────────────────────────────────────────────────── */}
+      {/* SIGNAL                                                 */}
+      {/* ────────────────────────────────────────────────────── */}
       {sig && (
         <div style={{ margin: '0 16px', background: sig.bg, border: `1px solid ${sig.border}`, borderRadius: 14, padding: '12px 16px' }}>
+
+          {/* Signal header row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 30, height: 30, borderRadius: '50%', background: sig.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, fontWeight: 700 }}>{sig.icon}</div>
             <div>
@@ -379,6 +509,74 @@ export default function App() {
               <div style={{ fontSize: 15, color: sig.color + 'cc', marginTop: 2 }}>{sig.sub}</div>
             </div>
           </div>
+
+          {/* ── TREND CHANGE TIMESTAMP SECTION ─────────────── */}
+          {trendHistory.length > 0 && currentPhaseBadge && (
+            <div style={{ marginTop: 12, borderTop: `1px dashed ${sig.border}`, paddingTop: 10 }}>
+
+              {/* หัวข้อ */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <span style={{ fontSize: 13 }}>🕐</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: sig.color, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                  บันทึกเวลาเปลี่ยนเทรนด์
+                </span>
+              </div>
+
+              {/* Badge เทรนด์ปัจจุบัน — เด่นชัด */}
+              {trendHistory[0] && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '9px 12px',
+                  borderRadius: 10,
+                  background: currentPhaseBadge.bg,
+                  border: `1.5px solid ${currentPhaseBadge.border}`,
+                  marginBottom: 8,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* animated dot */}
+                    <span style={{ position: 'relative', display: 'inline-flex', width: 10, height: 10 }}>
+                      <span style={{
+                        position: 'absolute', inset: 0, borderRadius: '50%',
+                        background: currentPhaseBadge.text, opacity: 0.4,
+                        animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite',
+                      }} />
+                      <span style={{ position: 'relative', width: 10, height: 10, borderRadius: '50%', background: currentPhaseBadge.text }} />
+                    </span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: currentPhaseBadge.text }}>
+                        {PHASE_LABELS[trendHistory[0].phase]}
+                      </div>
+                      <div style={{ fontSize: 10, color: currentPhaseBadge.text, opacity: 0.75, marginTop: 1 }}>
+                        เทรนด์ปัจจุบัน · {formatElapsed(trendHistory[0].timestamp)}
+                      </div>
+                    </div>
+                  </div>
+                  {/* วันที่+เวลา */}
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: currentPhaseBadge.text, fontVariantNumeric: 'tabular-nums', letterSpacing: 0.2 }}>
+                      {formatDateTime24(trendHistory[0].timestamp)}
+                    </div>
+                    <div style={{ fontSize: 10, color: currentPhaseBadge.text, opacity: 0.6, marginTop: 1 }}>
+                      วัน/เดือน/ปี เวลา 24 ชม.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CSS animation สำหรับ ping dot */}
+              <style>{`
+                @keyframes ping {
+                  75%, 100% { transform: scale(2); opacity: 0; }
+                }
+              `}</style>
+
+              {/* ประวัติ trend ก่อนหน้า (ถ้ามีมากกว่า 1 รายการ) */}
+              <TrendChangeHistory history={trendHistory} />
+
+            </div>
+          )}
+          {/* ── END TREND CHANGE TIMESTAMP ─────────────────── */}
+
         </div>
       )}
 
