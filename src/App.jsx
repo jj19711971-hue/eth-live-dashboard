@@ -240,9 +240,9 @@ function calcSpotAdvisor(ind, score) {
     action = 'SELL_STRONG'; actionLabel = '🔴 ราคาสูงเกินไปแล้ว — ควรขายเพื่อทำกำไร'
     actionColor = '#7f1d1d'; actionBg = '#fff1f2'; actionBorder = '#fca5a5'
     mainMsg = `ราคา ETH อยู่ในโซน Premium สัญญาณบ่งชี้ว่าราคาสูงเกินจริง มีความเสี่ยงย่อตัว`
-    subMsg  = `💡 แนะนำ: ขายบางส่วนเพื่อทำกำไร อย่าถือจนยอดแล้วค่อยขาย`
+    subMsg  = `💡 แนะนำ: ขายบางส่วนเพื่อทำกำไร อย่าถือจนถึงยอดแล้วค่อยขาย`
   } else if (sellScore >= 3 && sellScore > buyScore) {
-    action = 'SELL_WEAK'; actionLabel = '🟡 ราคาเริ่มแพงขึ้น — เตรียมทำกำไร'
+    action = 'SELL_WEAK'; actionLabel = '🟡 ราคาเริ่มแพงขึ้น — เตรียมขายทำกำไร'
     actionColor = '#9c4a1a'; actionBg = '#fff3e0'; actionBorder = '#ffcc80'
     mainMsg = `ราคาเริ่มสูงกว่าปกติ แต่ยังไม่แพงสุดขีด`
     subMsg  = `💡 แนะนำ: เตรียมแผนขายบางส่วน รอสัญญาณยืนยัน`
@@ -250,12 +250,12 @@ function calcSpotAdvisor(ind, score) {
     action = 'WAIT'; actionLabel = '⏸️ ยังไม่ควรซื้อหรือขายตอนนี้'
     actionColor = '#4a4035'; actionBg = '#f8f5ef'; actionBorder = '#ddd8cc'
     mainMsg = `ราคาอยู่ในโซนกลาง สัญญาณยังไม่ชัดเจนทั้ง BUY และ SELL`
-    subMsg  = `💡 แนะนำ: ถือ position เดิม รอสัญญาณที่ชัดเจนกว่านี้`
+    subMsg  = `💡 แนะนำ: ถือเงินสดไว้ก่อน รอสัญญาณที่ชัดเจนกว่านี้`
   }
 
   // ── คำเตือนพิเศษ (ขายหมู / กลัวตกรถ) ────────────────────
   if (rsiOverbought && score < 45) {
-    warningMsg = '⚠️ RSI สูงแต่ Trend อ่อน — อย่าซื้อตาม ระวังกลัวตกรถ (FOMO) ราคาอาจย่อต่อ'
+    warningMsg = '⚠️ RSI สูงแต่ Trend อ่อน — อย่าซื้อตาม เพราะกลัวตกรถ (FOMO) ราคาอาจย่อต่อ'
   } else if (rsiOversold && score > 55) {
     warningMsg = '⚠️ RSI ต่ำแต่ Trend ยังขึ้น — อย่ารีบขาย นี่คือการย่อตัวในขาขึ้น'
   } else if (bigRise && rsiOverbought) {
@@ -263,7 +263,7 @@ function calcSpotAdvisor(ind, score) {
   } else if (bigDrop && extremeFear) {
     warningMsg = '⚠️ ราคาลงเร็ว + Extreme Fear — อย่าตื่นตกใจขาย อาจเป็นโอกาสสะสม ไม่ใช่เวลาขายหมู!'
   } else if (buyScore >= 3 && score < 35) {
-    warningMsg = '⚠️ RSI ต่ำ แต่ Trend ยังขาลงแรง — ทะยอยสะสมได้ แต่อย่าใส่หมดทีเดียว'
+    warningMsg = '⚠️ RSI ต่ำ แต่ Trend ยังขาลงแรง — ทะยอยสะสมได้ แต่อย่าซื้อหมดทีเดียว'
   }
 
   // ── ราคาจุดเข้า-ออกที่แนะนำ ──────────────────────────────
@@ -302,14 +302,28 @@ function calcSpotAdvisor(ind, score) {
 // ─────────────────────────────────────────────
 // SPOT ADVISOR CARD COMPONENT
 // ─────────────────────────────────────────────
-function SpotAdvisorCard({ adv, price }) {
+function SpotAdvisorCard({ adv, price, ethThb }) {
   if (!adv) return null
   const [showDetail, setShowDetail] = useState(false)
 
-  const isBuy   = adv.action === 'BUY_STRONG' || adv.action === 'BUY_WEAK'
-  const isSell  = adv.action === 'SELL_STRONG' || adv.action === 'SELL_WEAK'
+  const isBuy    = adv.action === 'BUY_STRONG' || adv.action === 'BUY_WEAK'
+  const isSell   = adv.action === 'SELL_STRONG' || adv.action === 'SELL_WEAK'
   const isStrong = adv.action === 'BUY_STRONG' || adv.action === 'SELL_STRONG'
-  const fmt = (n) => n?.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  // อัตราแลกเปลี่ยน USD → THB คำนวณจาก ethThb ÷ price (USD)
+  const usdToThb = (ethThb && price && price > 0) ? ethThb / price : null
+
+  // fmt: แปลง USD → THB แล้วแสดง ฿ พร้อม comma ไม่มีทศนิยม
+  const fmtThb = (usd) => {
+    if (usd == null || usdToThb == null) return '—'
+    const thb = usd * usdToThb
+    return '฿' + thb.toLocaleString('th', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  }
+  // ราคาปัจจุบันเป็น THB
+  const priceThb = (price && usdToThb) ? price * usdToThb : null
+  const fmtPriceThb = priceThb
+    ? '฿' + priceThb.toLocaleString('th', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+    : '—'
 
   return (
     <div style={{ margin: '8px 16px', background: adv.actionBg, border: `1.5px solid ${adv.actionBorder}`, borderRadius: 16, overflow: 'hidden' }}>
@@ -325,7 +339,7 @@ function SpotAdvisorCard({ adv, price }) {
           </span>
           <div>
             <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: 0.5 }}>
-              ตลาด SPOT · ซื้อขายสินทรัพย์จริง · ETH/USD
+              ตลาด SPOT · ซื้อขายสินทรัพย์จริง · ETH/THB
             </div>
             <div style={{ fontSize: 15, color: '#fff', fontWeight: 900 }}>
               {adv.actionLabel}
@@ -360,9 +374,9 @@ function SpotAdvisorCard({ adv, price }) {
         {/* Price Position Bar */}
         <div style={{ marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11, color: '#a09880', fontWeight: 600 }}>
-            <span>🟢 แนวรับ ${fmt(adv.support)}</span>
+            <span>🟢 แนวรับ {fmtThb(adv.support)}</span>
             <span>ราคาปัจจุบัน</span>
-            <span>🔴 แนวต้าน ${fmt(adv.resistance)}</span>
+            <span>🔴 แนวต้าน {fmtThb(adv.resistance)}</span>
           </div>
           {/* Bar showing current price between support and resistance */}
           {(() => {
@@ -379,7 +393,7 @@ function SpotAdvisorCard({ adv, price }) {
           })()}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: '#a09880' }}>
             <span style={{ color: '#16a34a' }}>โซนซื้อสะสม</span>
-            <span style={{ fontWeight: 700, color: '#1a1612' }}>${fmt(price)}</span>
+            <span style={{ fontWeight: 700, color: '#1a1612' }}>{fmtPriceThb}</span>
             <span style={{ color: '#dc2626' }}>โซนขายทำกำไร</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2, fontSize: 10, color: '#a09880' }}>
@@ -395,9 +409,9 @@ function SpotAdvisorCard({ adv, price }) {
             <div style={{ fontSize: 10, color: '#166534', fontWeight: 700, marginBottom: 4 }}>
               🛒 โซนซื้อสะสม {adv.inBuyZone && <span style={{ background: '#16a34a', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>ราคาอยู่ในโซน!</span>}
             </div>
-            <div style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>${fmt(adv.buyZoneLow)} – ${fmt(adv.buyZoneHigh)}</div>
+            <div style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>{fmtThb(adv.buyZoneLow)} – {fmtThb(adv.buyZoneHigh)}</div>
             <div style={{ fontSize: 10, color: '#2d6a4f', marginTop: 4, lineHeight: 1.5 }}>
-              TP1: ${fmt(adv.spotTP1)}<br />TP2: ${fmt(adv.spotTP2)}<br />SL: ${fmt(adv.spotSL)}
+              TP1: {fmtThb(adv.spotTP1)}<br />TP2: {fmtThb(adv.spotTP2)}<br />SL: {fmtThb(adv.spotSL)}
             </div>
           </div>
           {/* Sell Zone */}
@@ -405,7 +419,7 @@ function SpotAdvisorCard({ adv, price }) {
             <div style={{ fontSize: 10, color: '#9b2226', fontWeight: 700, marginBottom: 4 }}>
               💰 โซนขายทำกำไร {adv.inSellZone && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>ราคาอยู่ในโซน!</span>}
             </div>
-            <div style={{ fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>${fmt(adv.sellZoneLow)} – ${fmt(adv.sellZoneHigh)}</div>
+            <div style={{ fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>{fmtThb(adv.sellZoneLow)} – {fmtThb(adv.sellZoneHigh)}</div>
             <div style={{ fontSize: 10, color: '#9b2226', marginTop: 4, lineHeight: 1.5 }}>
               แนวต้าน Swing High<br />ระวัง Overbought<br />พิจารณาขายบางส่วน
             </div>
@@ -463,7 +477,7 @@ function SpotAdvisorCard({ adv, price }) {
 
         {/* Disclaimer */}
         <div style={{ fontSize: 10, color: '#a09880', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, lineHeight: 1.6, marginTop: 10 }}>
-          ⚠️ ไม่ใช่คำแนะนำการลงทุน การลงทุนมีความเสี่ยง ควรศึกษาและตัดสินใจด้วยตนเอง
+          ⚠️ เพิ่มเติม: RSI ต่ำกว่า 30 ขายมากเกินไป หรือ Oversold ระวังแรงซื้อเพื่อสะสม RSI:50 โซนวัดใจ  Neutral ราคามักออกข้างหรือ Sideway รอเลือกทาง RSI มากกว่า 70 ซื้อมากเกินไป หรือ Overbought ระวังแรงเทขายทำกำไร ⚠️ ขยายความ: TP1/TP2 (Take Profit) คือจุดขายทำกำไร SL (Stop Loss) คือจุดตัดขาดทุน ⚠️ แนวต้าน Swing High หมายความว่า: เมื่อไม่กี่ชั่วโมงที่ผ่านมา ราคาเคยขึ้นไปสูงสุด แล้วร่วงลงมา
         </div>
       </div>
     </div>
@@ -493,7 +507,7 @@ function FuturesCard({ pos }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 20 }}>{isBuy ? '📈' : isSell ? '📉' : '⏸️'}</span>
           <div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>FUTURES · H1 · 1 Lot · Leverage 1:{LEVERAGE}</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>ตลาด FUTURES · สัญญาซื้อขายล่วงหน้า 1:{LEVERAGE}</div>
             <div style={{ fontSize: 15, color: '#fff', fontWeight: 900 }}>
               {isBuy ? '🟢 เปิดออร์เดอร์ BUY' : isSell ? '🔴 เปิดออร์เดอร์ SELL' : '⏳ ยังไม่ควรเปิดออร์เดอร์'}
             </div>
@@ -592,7 +606,7 @@ function FuturesCard({ pos }) {
         )}
 
         <div style={{ fontSize: 10, color: '#a09880', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, lineHeight: 1.6, marginTop: 4 }}>
-          ⚠️ คำเตือน: การเทรด Futures มีความเสี่ยงสูง ไม่ใช่คำแนะนำการลงทุน
+          ⚠️ คำเตือน: การเทรด Futures มีความเสี่ยงสูง
         </div>
       </div>
     </div>
@@ -881,7 +895,7 @@ export default function App() {
       <MarketPhaseCard phase={marketPhase} />
 
       {/* ── SPOT TRADING ADVISOR (NEW) ── */}
-      <SpotAdvisorCard adv={spotAdv} price={ind?.price} />
+      <SpotAdvisorCard adv={spotAdv} price={ind?.price} ethThb={ind?.ethThb} />
 
       {/* ── FUTURES POSITION ── */}
       <FuturesCard pos={futuresPos} />
