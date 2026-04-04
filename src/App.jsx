@@ -68,88 +68,47 @@ function calcMarketPhase(ind) {
 // FUTURES POSITION CALCULATOR
 // H1 TF · 1 Lot · Leverage 1:200
 // ─────────────────────────────────────────────
-const LOT_SIZE  = 1       // 1 Lot ETH/USD (1 ETH)
-const LEVERAGE  = 200     // 1:200
-const MARGIN_PCT = 1 / LEVERAGE  // 0.5%
+const LOT_SIZE   = 1
+const LEVERAGE   = 200
+const MARGIN_PCT = 1 / LEVERAGE
 
 function calcFuturesPosition(ind, score, phase) {
   if (!ind || score === null) return null
-
   const { price, atr, support, resistance, adx, plusDI, minusDI,
-          ema9, ema21, ema21h4, rsi, volRatio, macroData } = ind
+          ema9, ema21, ema21h4, rsi } = ind
 
-  // ── เงื่อนไขเปิด BUY ──────────────────────────────────────
-  // ต้องผ่านอย่างน้อย 4 ใน 6 เงื่อนไข
   const buySignals = [
-    score >= 55,                                  // Forecast score บวก
-    ema9 > ema21,                                 // EMA cross bullish
-    price > ema21h4,                              // H4 filter ผ่าน
-    plusDI > minusDI,                             // DI บวก
-    adx > 20,                                     // Trend มีแรง
-    rsi > 45 && rsi < 72,                         // RSI momentum ดี ไม่ overbought
+    score >= 55, ema9 > ema21, price > ema21h4, plusDI > minusDI,
+    adx > 20, rsi > 45 && rsi < 72,
   ]
-  const buyCount = buySignals.filter(Boolean).length
-
-  // ── เงื่อนไขเปิด SELL ─────────────────────────────────────
   const sellSignals = [
-    score <= 45,                                  // Forecast score ลบ
-    ema9 < ema21,                                 // EMA cross bearish
-    price < ema21h4,                              // H4 filter ลง
-    minusDI > plusDI,                             // DI ลบ
-    adx > 20,                                     // Trend มีแรง
-    rsi < 55 && rsi > 28,                         // RSI momentum ลง ไม่ oversold
+    score <= 45, ema9 < ema21, price < ema21h4, minusDI > plusDI,
+    adx > 20, rsi < 55 && rsi > 28,
   ]
+  const buyCount  = buySignals.filter(Boolean).length
   const sellCount = sellSignals.filter(Boolean).length
+  const phaseOk   = phase?.phase === 'bullish' || phase?.phase === 'bearish'
 
-  // ── Phase blacklist ────────────────────────────────────────
-  // ถ้า Squeeze หรือ Mixed → ยังไม่เปิด
-  const phaseOk = phase?.phase === 'bullish' || phase?.phase === 'bearish'
+  let direction = 'WAIT', signalCount = 0
+  if (phaseOk && buyCount >= 4 && buyCount > sellCount)  { direction = 'BUY';  signalCount = buyCount }
+  else if (phaseOk && sellCount >= 4 && sellCount > buyCount) { direction = 'SELL'; signalCount = sellCount }
 
-  // ── ตัดสินใจ ──────────────────────────────────────────────
-  let direction = 'WAIT'
-  let signalCount = 0
-  let totalSignals = 6
-
-  if (phaseOk && buyCount >= 4 && buyCount > sellCount) {
-    direction = 'BUY'
-    signalCount = buyCount
-  } else if (phaseOk && sellCount >= 4 && sellCount > buyCount) {
-    direction = 'SELL'
-    signalCount = sellCount
-  }
-
-  // ── ATR-based SL / TP (H1) ────────────────────────────────
-  // SL = 1.5 × ATR (หยุดขาดทุน)
-  // TP1 = 1.5 × ATR (เป้าหมาย 1:1.5 R:R)
-  // TP2 = 3.0 × ATR (เป้าหมาย 1:3.0 R:R)
-  const atrVal   = atr ?? (price * 0.008)  // fallback 0.8%
-  const slDist   = Math.round(atrVal * 1.5 * 100) / 100
-  const tp1Dist  = Math.round(atrVal * 2.0 * 100) / 100
-  const tp2Dist  = Math.round(atrVal * 3.5 * 100) / 100
+  const atrVal  = atr ?? (price * 0.008)
+  const slDist  = Math.round(atrVal * 1.5 * 100) / 100
+  const tp1Dist = Math.round(atrVal * 2.0 * 100) / 100
+  const tp2Dist = Math.round(atrVal * 3.5 * 100) / 100
 
   let entryPrice, slPrice, tp1Price, tp2Price
   if (direction === 'BUY') {
-    // Entry: ราคาปัจจุบัน (Market Order)
-    // SL: ต่ำกว่า support หรือ entry - slDist
-    entryPrice = price
-    slPrice    = Math.max(support - atrVal * 0.3, price - slDist)
-    tp1Price   = price + tp1Dist
-    tp2Price   = price + tp2Dist
+    entryPrice = price; slPrice = Math.max(support - atrVal * 0.3, price - slDist)
+    tp1Price = price + tp1Dist; tp2Price = price + tp2Dist
   } else if (direction === 'SELL') {
-    entryPrice = price
-    slPrice    = Math.min(resistance + atrVal * 0.3, price + slDist)
-    tp1Price   = price - tp1Dist
-    tp2Price   = price - tp2Dist
+    entryPrice = price; slPrice = Math.min(resistance + atrVal * 0.3, price + slDist)
+    tp1Price = price - tp1Dist; tp2Price = price - tp2Dist
   } else {
-    entryPrice = price
-    slPrice    = price - slDist
-    tp1Price   = price + tp1Dist
-    tp2Price   = price + tp2Dist
+    entryPrice = price; slPrice = price - slDist; tp1Price = price + tp1Dist; tp2Price = price + tp2Dist
   }
 
-  // ── P&L คำนวณ ─────────────────────────────────────────────
-  // 1 Lot ETH/USD = 1 ETH
-  // Margin = price × LOT_SIZE / LEVERAGE
   const margin      = Math.round(entryPrice * LOT_SIZE / LEVERAGE * 100) / 100
   const slLoss      = Math.round(Math.abs(entryPrice - slPrice) * LOT_SIZE * 100) / 100
   const tp1Profit   = Math.round(Math.abs(tp1Price - entryPrice) * LOT_SIZE * 100) / 100
@@ -157,40 +116,358 @@ function calcFuturesPosition(ind, score, phase) {
   const riskReward1 = Math.round((tp1Profit / slLoss) * 10) / 10
   const riskReward2 = Math.round((tp2Profit / slLoss) * 10) / 10
 
-  // ── เหตุผล ────────────────────────────────────────────────
   const reasons = direction === 'BUY'
-    ? buySignals.map((ok, i) => ({
-        ok,
-        label: ['Score ≥ 55 (Bullish)', 'EMA9 > EMA21 (Cross ขึ้น)', 'Price > EMA21 H4', '+DI > -DI (แรงซื้อนำ)', 'ADX > 20 (Trend แรง)', 'RSI 45–72 (Momentum ดี)'][i]
-      }))
+    ? buySignals.map((ok, i) => ({ ok, label: ['Score ≥ 55 (Bullish)', 'EMA9 > EMA21 (Cross ขึ้น)', 'Price > EMA21 H4', '+DI > -DI (แรงซื้อนำ)', 'ADX > 20 (Trend แรง)', 'RSI 45–72 (Momentum ดี)'][i] }))
     : direction === 'SELL'
-    ? sellSignals.map((ok, i) => ({
-        ok,
-        label: ['Score ≤ 45 (Bearish)', 'EMA9 < EMA21 (Cross ลง)', 'Price < EMA21 H4', '-DI > +DI (แรงขายนำ)', 'ADX > 20 (Trend แรง)', 'RSI 28–55 (Momentum ลง)'][i]
-      }))
+    ? sellSignals.map((ok, i) => ({ ok, label: ['Score ≤ 45 (Bearish)', 'EMA9 < EMA21 (Cross ลง)', 'Price < EMA21 H4', '-DI > +DI (แรงขายนำ)', 'ADX > 20 (Trend แรง)', 'RSI 28–55 (Momentum ลง)'][i] }))
     : []
 
-  // ── รายละเอียด Wait ───────────────────────────────────────
   let waitReason = ''
   if (!phaseOk) {
-    waitReason = phase?.phase === 'squeeze'
-      ? 'ตลาดอยู่ในสภาวะ Squeeze — ADX < 20 ยังไม่มีทิศทางชัดเจน รอ Breakout'
-      : 'สัญญาณผสม (Transition) — ทิศทางยังขัดแย้ง รอยืนยัน'
+    waitReason = phase?.phase === 'squeeze' ? 'ตลาดอยู่ในสภาวะ Squeeze — ADX < 20 ยังไม่มีทิศทางชัดเจน รอ Breakout' : 'สัญญาณผสม (Transition) — ทิศทางยังขัดแย้ง รอยืนยัน'
   } else if (buyCount < 4 && sellCount < 4) {
     waitReason = `สัญญาณยังไม่ครบ — BUY ${buyCount}/6 · SELL ${sellCount}/6 ต้องการอย่างน้อย 4/6`
-  } else if (buyCount === sellCount) {
-    waitReason = 'สัญญาณ BUY และ SELL สมดุลกัน — รอสัญญาณที่ชัดเจนกว่านี้'
+  } else if (buyCount === sellCount) { waitReason = 'สัญญาณ BUY และ SELL สมดุลกัน — รอสัญญาณที่ชัดเจนกว่านี้' }
+
+  return { direction, signalCount, totalSignals: 6, entryPrice, slPrice, tp1Price, tp2Price,
+    slDist, tp1Dist, tp2Dist, margin, slLoss, tp1Profit, tp2Profit,
+    riskReward1, riskReward2, atrVal, reasons, waitReason, buyCount, sellCount }
+}
+
+// ─────────────────────────────────────────────────────────────
+// SPOT TRADING ADVISOR — ซื้อ/ขาย/รอ พร้อมจุดเข้า-ออก
+// Logic: ประเมิน RSI Zone + Price vs EMA + Trend + F&G
+// ─────────────────────────────────────────────────────────────
+function calcSpotAdvisor(ind, score) {
+  if (!ind || score === null) return null
+
+  const { price, rsi, ema21, ema21h4, ema9, adx, plusDI, minusDI,
+          support, resistance, atr, fg, pctChange, volRatio, btcChg } = ind
+
+  const atrVal = atr ?? (price * 0.008)
+
+  // ── Zone การประเมิน ────────────────────────────────────────
+  // RSI Zone
+  const rsiOversold     = rsi < 35            // ราคาถูกเกินจริง (โอกาสซื้อ)
+  const rsiNearOversold = rsi >= 35 && rsi < 45 // ใกล้ oversold
+  const rsiNeutral      = rsi >= 45 && rsi <= 60
+  const rsiNearOverbought = rsi > 60 && rsi <= 72 // ใกล้ overbought
+  const rsiOverbought   = rsi > 72             // ราคาแพงเกินจริง (โอกาสขาย)
+
+  // Price vs EMA (ราคาอยู่ไหนเทียบกับเส้น)
+  const priceAboveAllEMA   = price > ema9 && price > ema21 && price > ema21h4   // แพงมาก
+  const priceBelowAllEMA   = price < ema9 && price < ema21 && price < ema21h4   // ถูกมาก
+  const priceMidBull       = price > ema21h4 && price > ema21  // กลางขาขึ้น
+  const priceMidBear       = price < ema21h4 && price < ema21  // กลางขาลง
+
+  // Drop / Rise จาก ATH (การลงจากยอดหรือขึ้นจากก้น)
+  const bigDrop   = pctChange < -4  // ลงมามากแล้วในรอบนี้
+  const bigRise   = pctChange > 4   // ขึ้นมามากแล้วในรอบนี้
+  const smallDrop = pctChange < -1.5 && pctChange >= -4
+  const smallRise = pctChange > 1.5 && pctChange <= 4
+
+  // Fear & Greed extreme
+  const extremeFear  = fg < 25
+  const fear         = fg >= 25 && fg < 40
+  const greed        = fg > 60 && fg <= 80
+  const extremeGreed = fg > 80
+
+  // ── ระดับการประเมิน ─────────────────────────────────────────
+  // คะแนน BUY (ต้องการ ≥ 3 จาก 5)
+  let buyScore = 0, sellScore = 0
+  const buyFactors = [], sellFactors = []
+
+  // RSI ต่ำ = ดีสำหรับซื้อ
+  if (rsiOversold)     { buyScore += 2; buyFactors.push({ ok: true,  label: 'RSI < 35 — ราคาถูกเกินจริง (Oversold) โอกาสซื้อสะสม' }) }
+  else if (rsiNearOversold) { buyScore += 1; buyFactors.push({ ok: true, label: 'RSI 35–45 — ใกล้ Oversold โอกาสทะยอยสะสม' }) }
+  else { buyFactors.push({ ok: false, label: `RSI ${rsi?.toFixed(0)} — ยังไม่อยู่ในโซน Oversold` }) }
+
+  // RSI สูง = ดีสำหรับขาย
+  if (rsiOverbought)   { sellScore += 2; sellFactors.push({ ok: true,  label: 'RSI > 72 — ราคาแพงเกินจริง (Overbought) ควรทำกำไร' }) }
+  else if (rsiNearOverbought) { sellScore += 1; sellFactors.push({ ok: true, label: 'RSI 60–72 — ใกล้ Overbought ควรเตรียมขายบางส่วน' }) }
+  else { sellFactors.push({ ok: false, label: `RSI ${rsi?.toFixed(0)} — ยังไม่อยู่ในโซน Overbought` }) }
+
+  // ราคาต่ำกว่า EMA = โอกาสซื้อ
+  if (priceBelowAllEMA) { buyScore += 2; buyFactors.push({ ok: true,  label: 'ราคาต่ำกว่า EMA ทุกเส้น — ราคา Discount ดีสำหรับสะสม' }) }
+  else if (priceMidBear){ buyScore += 1; buyFactors.push({ ok: true,  label: 'ราคาต่ำกว่า EMA21 H4 — ยังเป็นโอกาสสะสมในขาลง' }) }
+  else { buyFactors.push({ ok: false, label: 'ราคาอยู่เหนือ EMA — ยังไม่ใช่โซน Discount' }) }
+
+  // ราคาสูงกว่า EMA = โอกาสขาย
+  if (priceAboveAllEMA) { sellScore += 2; sellFactors.push({ ok: true,  label: 'ราคาเหนือ EMA ทุกเส้น — ราคา Premium ดีสำหรับทำกำไร' }) }
+  else if (priceMidBull){ sellScore += 1; sellFactors.push({ ok: true,  label: 'ราคาเหนือ EMA21 H4 — โซน Premium บางส่วน' }) }
+  else { sellFactors.push({ ok: false, label: 'ราคาอยู่ใต้ EMA — ยังไม่ใช่โซน Premium' }) }
+
+  // Fear & Greed — contrarian
+  if (extremeFear)  { buyScore += 2;  buyFactors.push({ ok: true,  label: 'Fear & Greed Extreme Fear < 25 — ตลาดตื่นกลัวสุดขีด โอกาสสะสมระยะยาว' }) }
+  else if (fear)    { buyScore += 1;  buyFactors.push({ ok: true,  label: 'Fear & Greed Fear — ตลาดกังวล มักเป็นโอกาสสะสม' }) }
+  else { buyFactors.push({ ok: false, label: `Fear & Greed ${fg} — ไม่อยู่ในโซน Fear` }) }
+
+  if (extremeGreed) { sellScore += 2; sellFactors.push({ ok: true,  label: 'Fear & Greed Extreme Greed > 80 — ตลาดโลภสุดขีด โอกาสทำกำไร' }) }
+  else if (greed)   { sellScore += 1; sellFactors.push({ ok: true,  label: 'Fear & Greed Greed — ตลาดโลภ เตรียมทำกำไรบางส่วน' }) }
+  else { sellFactors.push({ ok: false, label: `Fear & Greed ${fg} — ไม่อยู่ในโซน Greed` }) }
+
+  // ลงมามาก = โอกาสซื้อ (ไม่ไล่ราคา)
+  if (bigDrop)      { buyScore += 1;  buyFactors.push({ ok: true,  label: `ราคาลง ${Math.abs(pctChange?.toFixed(1))}% วันนี้ — ลงมามากแล้ว อย่ากลัวเกินไป` }) }
+  else if (smallDrop){ buyScore += 0.5; buyFactors.push({ ok: true, label: `ราคาลง ${Math.abs(pctChange?.toFixed(1))}% — ย่อตัวเล็กน้อย โอกาสสะสม` }) }
+  else { buyFactors.push({ ok: false, label: 'ราคาไม่ได้ลงมามาก — อย่าตามซื้อตอนขึ้น (ซื้อหมู)' }) }
+
+  // ขึ้นมามาก = โอกาสขาย (ไม่ถือจนยอด)
+  if (bigRise)      { sellScore += 1;  sellFactors.push({ ok: true,  label: `ราคาขึ้น ${pctChange?.toFixed(1)}% วันนี้ — ขึ้นมามากแล้ว ทำกำไรบางส่วน` }) }
+  else if (smallRise){ sellScore += 0.5; sellFactors.push({ ok: true, label: `ราคาขึ้น ${pctChange?.toFixed(1)}% — ขึ้นมาพอควร พิจารณาทำกำไร` }) }
+  else { sellFactors.push({ ok: false, label: 'ราคาไม่ได้ขึ้นมามาก — อย่ารีบขายหมู' }) }
+
+  // ── ตัดสินใจ ──────────────────────────────────────────────
+  // BUY_STRONG: buyScore ≥ 5 (ราคาถูกจริงๆ หลายสัญญาณพร้อมกัน)
+  // BUY_WEAK:   buyScore 3–4
+  // SELL_STRONG: sellScore ≥ 5
+  // SELL_WEAK:  sellScore 3–4
+  // WAIT:       ไม่มีสัญญาณชัด
+  let action = 'WAIT', actionLabel = '', actionColor = '', actionBg = '', actionBorder = ''
+  let mainMsg = '', subMsg = '', warningMsg = ''
+  const maxBuyScore = 8, maxSellScore = 8
+
+  if (buyScore >= 5 && buyScore > sellScore) {
+    action = 'BUY_STRONG'; actionLabel = '🟢 ราคาต่ำเกินไปแล้ว — ควรซื้อเพื่อสะสม'
+    actionColor = '#1a5c38'; actionBg = '#f0fdf4'; actionBorder = '#4ade80'
+    mainMsg = `ราคา ETH อยู่ในโซน Discount ที่น่าสะสม หลายปัจจัยชี้ว่าราคาต่ำเกินความเป็นจริง`
+    subMsg  = `💡 แนะนำ: ทะยอยซื้อสะสม อย่าใส่ทีเดียวทั้งหมด แบ่งซื้อ 3–5 ครั้ง`
+  } else if (buyScore >= 3 && buyScore > sellScore) {
+    action = 'BUY_WEAK'; actionLabel = '🟡 ราคาเริ่มน่าสนใจ — พิจารณาทะยอยสะสม'
+    actionColor = '#7b6914'; actionBg = '#fffbeb'; actionBorder = '#fde68a'
+    mainMsg = `ราคามีสัญญาณน่าสะสมบ้าง แต่ยังไม่ถูกพอ`
+    subMsg  = `💡 แนะนำ: ซื้อน้อยๆ ก่อน รอสัญญาณแข็งแกร่งกว่านี้`
+  } else if (sellScore >= 5 && sellScore > buyScore) {
+    action = 'SELL_STRONG'; actionLabel = '🔴 ราคาสูงเกินไปแล้ว — ควรขายเพื่อทำกำไร'
+    actionColor = '#7f1d1d'; actionBg = '#fff1f2'; actionBorder = '#fca5a5'
+    mainMsg = `ราคา ETH อยู่ในโซน Premium สัญญาณบ่งชี้ว่าราคาสูงเกินจริง มีความเสี่ยงย่อตัว`
+    subMsg  = `💡 แนะนำ: ขายบางส่วนเพื่อทำกำไร อย่าถือจนยอดแล้วค่อยขาย`
+  } else if (sellScore >= 3 && sellScore > buyScore) {
+    action = 'SELL_WEAK'; actionLabel = '🟡 ราคาเริ่มแพงขึ้น — เตรียมทำกำไร'
+    actionColor = '#9c4a1a'; actionBg = '#fff3e0'; actionBorder = '#ffcc80'
+    mainMsg = `ราคาเริ่มสูงกว่าปกติ แต่ยังไม่แพงสุดขีด`
+    subMsg  = `💡 แนะนำ: เตรียมแผนขายบางส่วน รอสัญญาณยืนยัน`
+  } else {
+    action = 'WAIT'; actionLabel = '⏸️ ยังไม่ควรซื้อหรือขายตอนนี้'
+    actionColor = '#4a4035'; actionBg = '#f8f5ef'; actionBorder = '#ddd8cc'
+    mainMsg = `ราคาอยู่ในโซนกลาง สัญญาณยังไม่ชัดเจนทั้ง BUY และ SELL`
+    subMsg  = `💡 แนะนำ: ถือ position เดิม รอสัญญาณที่ชัดเจนกว่านี้`
   }
 
-  return {
-    direction, signalCount, totalSignals,
-    entryPrice, slPrice, tp1Price, tp2Price,
-    slDist, tp1Dist, tp2Dist,
-    margin, slLoss, tp1Profit, tp2Profit,
-    riskReward1, riskReward2,
-    atrVal, reasons, waitReason,
-    buyCount, sellCount,
+  // ── คำเตือนพิเศษ (ขายหมู / กลัวตกรถ) ────────────────────
+  if (rsiOverbought && score < 45) {
+    warningMsg = '⚠️ RSI สูงแต่ Trend อ่อน — อย่าซื้อตาม ระวังกลัวตกรถ (FOMO) ราคาอาจย่อต่อ'
+  } else if (rsiOversold && score > 55) {
+    warningMsg = '⚠️ RSI ต่ำแต่ Trend ยังขึ้น — อย่ารีบขาย นี่คือการย่อตัวในขาขึ้น'
+  } else if (bigRise && rsiOverbought) {
+    warningMsg = '⚠️ ราคาขึ้นเร็วมาก + RSI Overbought — อย่าซื้อตามตอนนี้ ระวังซื้อหมูที่ยอด!'
+  } else if (bigDrop && extremeFear) {
+    warningMsg = '⚠️ ราคาลงเร็ว + Extreme Fear — อย่าตื่นตกใจขาย อาจเป็นโอกาสสะสม ไม่ใช่เวลาขายหมู!'
+  } else if (buyScore >= 3 && score < 35) {
+    warningMsg = '⚠️ RSI ต่ำ แต่ Trend ยังขาลงแรง — ทะยอยสะสมได้ แต่อย่าใส่หมดทีเดียว'
   }
+
+  // ── ราคาจุดเข้า-ออกที่แนะนำ ──────────────────────────────
+  // Zone ซื้อ: support ± ATR
+  const buyZoneHigh  = Math.round((support + atrVal * 0.5) * 100) / 100
+  const buyZoneLow   = Math.round((support - atrVal * 0.3) * 100) / 100
+  // Zone ขาย: resistance ± ATR
+  const sellZoneHigh = Math.round((resistance + atrVal * 0.3) * 100) / 100
+  const sellZoneLow  = Math.round((resistance - atrVal * 0.5) * 100) / 100
+  // TP สำหรับ Spot: ขึ้นไปถึง resistance
+  const spotTP1 = Math.round(resistance * 100) / 100
+  const spotTP2 = Math.round((resistance + atrVal * 2) * 100) / 100
+  // SL Spot: ต่ำกว่า support
+  const spotSL  = Math.round((support - atrVal * 0.5) * 100) / 100
+
+  // ราคาปัจจุบัน vs buy/sell zone
+  const inBuyZone  = price <= buyZoneHigh && price >= buyZoneLow
+  const inSellZone = price >= sellZoneLow && price <= sellZoneHigh
+  const pctFromSupport   = ((price - support) / support * 100).toFixed(1)
+  const pctFromResistance = ((resistance - price) / price * 100).toFixed(1)
+
+  return {
+    action, actionLabel, actionColor, actionBg, actionBorder,
+    mainMsg, subMsg, warningMsg,
+    buyScore: Math.round(buyScore), maxBuyScore,
+    sellScore: Math.round(sellScore), maxSellScore,
+    buyFactors, sellFactors,
+    buyZoneHigh, buyZoneLow, sellZoneHigh, sellZoneLow,
+    spotTP1, spotTP2, spotSL,
+    inBuyZone, inSellZone,
+    pctFromSupport, pctFromResistance,
+    support, resistance,
+  }
+}
+
+// ─────────────────────────────────────────────
+// SPOT ADVISOR CARD COMPONENT
+// ─────────────────────────────────────────────
+function SpotAdvisorCard({ adv, price }) {
+  if (!adv) return null
+  const [showDetail, setShowDetail] = useState(false)
+
+  const isBuy   = adv.action === 'BUY_STRONG' || adv.action === 'BUY_WEAK'
+  const isSell  = adv.action === 'SELL_STRONG' || adv.action === 'SELL_WEAK'
+  const isStrong = adv.action === 'BUY_STRONG' || adv.action === 'SELL_STRONG'
+  const fmt = (n) => n?.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+  return (
+    <div style={{ margin: '8px 16px', background: adv.actionBg, border: `1.5px solid ${adv.actionBorder}`, borderRadius: 16, overflow: 'hidden' }}>
+
+      {/* Header */}
+      <div style={{
+        background: adv.actionColor, padding: '12px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 22 }}>
+            {isBuy ? '🛒' : isSell ? '💰' : '⏸️'}
+          </span>
+          <div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: 0.5 }}>
+              ตลาด SPOT · ซื้อขายสินทรัพย์จริง · ETH/USD
+            </div>
+            <div style={{ fontSize: 15, color: '#fff', fontWeight: 900 }}>
+              {adv.actionLabel}
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>{isBuy ? 'BUY' : isSell ? 'SELL' : 'WAIT'}</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: '#fff' }}>
+            {isBuy ? `${adv.buyScore}/${adv.maxBuyScore}` : isSell ? `${adv.sellScore}/${adv.maxSellScore}` : '—'}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '14px 16px' }}>
+
+        {/* Main message */}
+        <div style={{ fontSize: 13, color: adv.actionColor, fontWeight: 700, marginBottom: 4, lineHeight: 1.5 }}>
+          {adv.mainMsg}
+        </div>
+        <div style={{ fontSize: 12, color: '#4a4035', marginBottom: 10, lineHeight: 1.6, padding: '8px 10px', background: 'rgba(0,0,0,0.04)', borderRadius: 8 }}>
+          {adv.subMsg}
+        </div>
+
+        {/* Warning */}
+        {adv.warningMsg && (
+          <div style={{ padding: '8px 12px', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: '#78350f', fontWeight: 600, lineHeight: 1.6 }}>{adv.warningMsg}</div>
+          </div>
+        )}
+
+        {/* Price Position Bar */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 11, color: '#a09880', fontWeight: 600 }}>
+            <span>🟢 แนวรับ ${fmt(adv.support)}</span>
+            <span>ราคาปัจจุบัน</span>
+            <span>🔴 แนวต้าน ${fmt(adv.resistance)}</span>
+          </div>
+          {/* Bar showing current price between support and resistance */}
+          {(() => {
+            const range = adv.resistance - adv.support
+            const pct = range > 0 ? Math.min(100, Math.max(0, ((price - adv.support) / range) * 100)) : 50
+            const barColor = pct < 30 ? '#16a34a' : pct > 70 ? '#dc2626' : '#f59e0b'
+            return (
+              <div style={{ position: 'relative', height: 12, background: '#e5e0d8', borderRadius: 6, overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', left: 0, top: 0, width: '30%', height: '100%', background: '#d8f3dc', borderRadius: '6px 0 0 6px' }} />
+                <div style={{ position: 'absolute', right: 0, top: 0, width: '30%', height: '100%', background: '#fde8e8', borderRadius: '0 6px 6px 0' }} />
+                <div style={{ position: 'absolute', left: `${pct}%`, top: '50%', transform: 'translate(-50%, -50%)', width: 16, height: 16, background: barColor, borderRadius: '50%', border: '2px solid #fff', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', zIndex: 2 }} />
+              </div>
+            )
+          })()}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: '#a09880' }}>
+            <span style={{ color: '#16a34a' }}>โซนซื้อสะสม</span>
+            <span style={{ fontWeight: 700, color: '#1a1612' }}>${fmt(price)}</span>
+            <span style={{ color: '#dc2626' }}>โซนขายทำกำไร</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2, fontSize: 10, color: '#a09880' }}>
+            <span>+{adv.pctFromSupport}% จากแนวรับ</span>
+            <span>{adv.pctFromResistance}% ถึงแนวต้าน</span>
+          </div>
+        </div>
+
+        {/* Buy / Sell Zone + TP / SL */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+          {/* Buy Zone */}
+          <div style={{ background: '#f0fdf4', border: `1.5px solid ${adv.inBuyZone ? '#4ade80' : '#bbf7d0'}`, borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ fontSize: 10, color: '#166534', fontWeight: 700, marginBottom: 4 }}>
+              🛒 โซนซื้อสะสม {adv.inBuyZone && <span style={{ background: '#16a34a', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>ราคาอยู่ในโซน!</span>}
+            </div>
+            <div style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>${fmt(adv.buyZoneLow)} – ${fmt(adv.buyZoneHigh)}</div>
+            <div style={{ fontSize: 10, color: '#2d6a4f', marginTop: 4, lineHeight: 1.5 }}>
+              TP1: ${fmt(adv.spotTP1)}<br />TP2: ${fmt(adv.spotTP2)}<br />SL: ${fmt(adv.spotSL)}
+            </div>
+          </div>
+          {/* Sell Zone */}
+          <div style={{ background: '#fff1f2', border: `1.5px solid ${adv.inSellZone ? '#f87171' : '#fca5a5'}`, borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ fontSize: 10, color: '#9b2226', fontWeight: 700, marginBottom: 4 }}>
+              💰 โซนขายทำกำไร {adv.inSellZone && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>ราคาอยู่ในโซน!</span>}
+            </div>
+            <div style={{ fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>${fmt(adv.sellZoneLow)} – ${fmt(adv.sellZoneHigh)}</div>
+            <div style={{ fontSize: 10, color: '#9b2226', marginTop: 4, lineHeight: 1.5 }}>
+              แนวต้าน Swing High<br />ระวัง Overbought<br />พิจารณาขายบางส่วน
+            </div>
+          </div>
+        </div>
+
+        {/* BUY / SELL Score bars */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <div style={{ flex: 1, background: '#fff', border: '1px solid #bbf7d0', borderRadius: 10, padding: '8px 10px' }}>
+            <div style={{ fontSize: 10, color: '#166534', fontWeight: 700, marginBottom: 4 }}>คะแนนสัญญาณ BUY</div>
+            <div style={{ height: 6, background: '#e5f7ec', borderRadius: 3, overflow: 'hidden', marginBottom: 3 }}>
+              <div style={{ width: `${(adv.buyScore / adv.maxBuyScore) * 100}%`, height: '100%', background: '#16a34a', borderRadius: 3, transition: 'width 0.8s' }} />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: adv.buyScore >= 5 ? '#16a34a' : adv.buyScore >= 3 ? '#c07a30' : '#a09880' }}>
+              {adv.buyScore}/{adv.maxBuyScore}
+            </div>
+          </div>
+          <div style={{ flex: 1, background: '#fff', border: '1px solid #fca5a5', borderRadius: 10, padding: '8px 10px' }}>
+            <div style={{ fontSize: 10, color: '#9b2226', fontWeight: 700, marginBottom: 4 }}>คะแนนสัญญาณ SELL</div>
+            <div style={{ height: 6, background: '#fde8e8', borderRadius: 3, overflow: 'hidden', marginBottom: 3 }}>
+              <div style={{ width: `${(adv.sellScore / adv.maxSellScore) * 100}%`, height: '100%', background: '#dc2626', borderRadius: 3, transition: 'width 0.8s' }} />
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: adv.sellScore >= 5 ? '#dc2626' : adv.sellScore >= 3 ? '#c07a30' : '#a09880' }}>
+              {adv.sellScore}/{adv.maxSellScore}
+            </div>
+          </div>
+        </div>
+
+        {/* Toggle Detail */}
+        <button
+          onClick={() => setShowDetail(v => !v)}
+          style={{ width: '100%', background: 'rgba(0,0,0,0.04)', border: '1px solid #e5e0d8', borderRadius: 8, padding: '6px 12px', fontSize: 11, color: '#7b6914', cursor: 'pointer', fontFamily: 'inherit', marginBottom: showDetail ? 10 : 0 }}
+        >
+          {showDetail ? '▲ ซ่อนรายละเอียด' : '▼ กดเข้าดูปัจจัยที่ประเมิน'}
+        </button>
+
+        {showDetail && (
+          <div>
+            <div style={{ fontSize: 11, color: '#7b6914', fontWeight: 700, marginBottom: 6 }}>ปัจจัยประเมินการซื้อ (BUY)</div>
+            {adv.buyFactors.map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, padding: '4px 8px', marginBottom: 3, background: f.ok ? '#f0fdf4' : '#f8f5ef', borderRadius: 6, border: `1px solid ${f.ok ? '#bbf7d0' : '#e5e0d8'}` }}>
+                <span style={{ flexShrink: 0, fontSize: 12 }}>{f.ok ? '✅' : '⬜'}</span>
+                <span style={{ fontSize: 11, color: f.ok ? '#2d6a4f' : '#a09880', lineHeight: 1.4 }}>{f.label}</span>
+              </div>
+            ))}
+            <div style={{ fontSize: 11, color: '#9b2226', fontWeight: 700, marginTop: 8, marginBottom: 6 }}>ปัจจัยประเมินการขาย (SELL)</div>
+            {adv.sellFactors.map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, padding: '4px 8px', marginBottom: 3, background: f.ok ? '#fff1f2' : '#f8f5ef', borderRadius: 6, border: `1px solid ${f.ok ? '#fca5a5' : '#e5e0d8'}` }}>
+                <span style={{ flexShrink: 0, fontSize: 12 }}>{f.ok ? '🔴' : '⬜'}</span>
+                <span style={{ fontSize: 11, color: f.ok ? '#9b2226' : '#a09880', lineHeight: 1.4 }}>{f.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Disclaimer */}
+        <div style={{ fontSize: 10, color: '#a09880', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, lineHeight: 1.6, marginTop: 10 }}>
+          ⚠️ ไม่ใช่คำแนะนำการลงทุน การลงทุนมีความเสี่ยง ควรศึกษาและตัดสินใจด้วยตนเอง
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ─────────────────────────────────────────────
@@ -203,41 +480,22 @@ function FuturesCard({ pos }) {
   const isSell = pos.direction === 'SELL'
   const isWait = pos.direction === 'WAIT'
 
-  const headerColor = isBuy  ? '#1a5c38'
-    : isSell ? '#7f1d1d'
-    : '#4a3f00'
-  const headerBg    = isBuy  ? '#16a34a'
-    : isSell ? '#dc2626'
-    : '#c07a30'
-  const cardBg      = isBuy  ? '#f0fdf4'
-    : isSell ? '#fff1f2'
-    : '#fffbeb'
-  const cardBorder  = isBuy  ? '#86efac'
-    : isSell ? '#fca5a5'
-    : '#fde68a'
-  const accentColor = isBuy  ? '#16a34a'
-    : isSell ? '#dc2626'
-    : '#c07a30'
+  const headerBg   = isBuy ? '#16a34a' : isSell ? '#dc2626' : '#c07a30'
+  const cardBg     = isBuy ? '#f0fdf4' : isSell ? '#fff1f2' : '#fffbeb'
+  const cardBorder = isBuy ? '#86efac' : isSell ? '#fca5a5' : '#fde68a'
+  const accentColor = isBuy ? '#16a34a' : isSell ? '#dc2626' : '#c07a30'
 
   const fmt = (n) => n?.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   return (
     <div style={{ margin: '8px 16px', background: cardBg, border: `1.5px solid ${cardBorder}`, borderRadius: 16, overflow: 'hidden' }}>
-
-      {/* ── Header ── */}
       <div style={{ background: headerBg, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 20 }}>
-            {isBuy ? '📈' : isSell ? '📉' : '⏸️'}
-          </span>
+          <span style={{ fontSize: 20 }}>{isBuy ? '📈' : isSell ? '📉' : '⏸️'}</span>
           <div>
-            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600, letterSpacing: 0.5 }}>
-              FUTURES · H1 · 1 Lot · Leverage 1:{LEVERAGE}
-            </div>
-            <div style={{ fontSize: 15, color: '#fff', fontWeight: 900, letterSpacing: 0.5 }}>
-              {isBuy  ? '🟢 เปิดออร์เดอร์ BUY'
-               : isSell ? '🔴 เปิดออร์เดอร์ SELL'
-               : '⏳ ยังไม่ควรเปิดออร์เดอร์'}
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>FUTURES · H1 · 1 Lot · Leverage 1:{LEVERAGE}</div>
+            <div style={{ fontSize: 15, color: '#fff', fontWeight: 900 }}>
+              {isBuy ? '🟢 เปิดออร์เดอร์ BUY' : isSell ? '🔴 เปิดออร์เดอร์ SELL' : '⏳ ยังไม่ควรเปิดออร์เดอร์'}
             </div>
           </div>
         </div>
@@ -250,8 +508,6 @@ function FuturesCard({ pos }) {
       </div>
 
       <div style={{ padding: '14px 16px' }}>
-
-        {/* ── WAIT reason ── */}
         {isWait && (
           <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
             <div style={{ fontSize: 12, color: '#78350f', fontWeight: 700, marginBottom: 4 }}>⚠️ เหตุผลที่ยังไม่เปิด</div>
@@ -269,10 +525,8 @@ function FuturesCard({ pos }) {
           </div>
         )}
 
-        {/* ── Entry / SL / TP ── */}
         {!isWait && (
           <>
-            {/* Entry price */}
             <div style={{ background: '#fff', borderRadius: 10, padding: '10px 14px', marginBottom: 10, border: '1px solid #e5e0d8' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
@@ -287,71 +541,44 @@ function FuturesCard({ pos }) {
               </div>
             </div>
 
-            {/* SL / TP Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
-              {/* SL */}
               <div style={{ background: '#fff1f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '8px 10px' }}>
                 <div style={{ fontSize: 10, color: '#9b2226', fontWeight: 700, marginBottom: 2 }}>🛑 STOP LOSS</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: '#dc2626' }}>${fmt(pos.slPrice)}</div>
-                <div style={{ fontSize: 10, color: '#ef4444', marginTop: 2 }}>
-                  {isBuy ? '−' : '+'}{fmt(pos.slDist)} pts
-                </div>
-                <div style={{ fontSize: 10, color: '#9b2226', marginTop: 1, fontWeight: 600 }}>
-                  ขาดทุน −${fmt(pos.slLoss)}
-                </div>
+                <div style={{ fontSize: 10, color: '#ef4444', marginTop: 2 }}>{isBuy ? '−' : '+'}{fmt(pos.slDist)} pts</div>
+                <div style={{ fontSize: 10, color: '#9b2226', marginTop: 1, fontWeight: 600 }}>ขาดทุน −${fmt(pos.slLoss)}</div>
               </div>
-
-              {/* TP1 */}
               <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '8px 10px' }}>
                 <div style={{ fontSize: 10, color: '#2d6a4f', fontWeight: 700, marginBottom: 2 }}>🎯 TP1</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: '#16a34a' }}>${fmt(pos.tp1Price)}</div>
-                <div style={{ fontSize: 10, color: '#22c55e', marginTop: 2 }}>
-                  {isBuy ? '+' : '−'}{fmt(pos.tp1Dist)} pts
-                </div>
-                <div style={{ fontSize: 10, color: '#2d6a4f', marginTop: 1, fontWeight: 600 }}>
-                  กำไร +${fmt(pos.tp1Profit)}
-                </div>
+                <div style={{ fontSize: 10, color: '#22c55e', marginTop: 2 }}>{isBuy ? '+' : '−'}{fmt(pos.tp1Dist)} pts</div>
+                <div style={{ fontSize: 10, color: '#2d6a4f', marginTop: 1, fontWeight: 600 }}>กำไร +${fmt(pos.tp1Profit)}</div>
               </div>
-
-              {/* TP2 */}
               <div style={{ background: '#f0fdf4', border: '1px solid #4ade80', borderRadius: 10, padding: '8px 10px' }}>
                 <div style={{ fontSize: 10, color: '#166534', fontWeight: 700, marginBottom: 2 }}>🎯 TP2</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: '#15803d' }}>${fmt(pos.tp2Price)}</div>
-                <div style={{ fontSize: 10, color: '#16a34a', marginTop: 2 }}>
-                  {isBuy ? '+' : '−'}{fmt(pos.tp2Dist)} pts
-                </div>
-                <div style={{ fontSize: 10, color: '#166534', marginTop: 1, fontWeight: 600 }}>
-                  กำไร +${fmt(pos.tp2Profit)}
-                </div>
+                <div style={{ fontSize: 10, color: '#16a34a', marginTop: 2 }}>{isBuy ? '+' : '−'}{fmt(pos.tp2Dist)} pts</div>
+                <div style={{ fontSize: 10, color: '#166534', marginTop: 1, fontWeight: 600 }}>กำไร +${fmt(pos.tp2Profit)}</div>
               </div>
             </div>
 
-            {/* R:R Ratio */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <div style={{ flex: 1, background: '#fff', border: '1px solid #e5e0d8', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: '#a09880', fontWeight: 600 }}>Risk : Reward (TP1)</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: pos.riskReward1 >= 1.5 ? '#16a34a' : '#c07a30' }}>
-                  1 : {pos.riskReward1}
-                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: pos.riskReward1 >= 1.5 ? '#16a34a' : '#c07a30' }}>1 : {pos.riskReward1}</div>
               </div>
               <div style={{ flex: 1, background: '#fff', border: '1px solid #e5e0d8', borderRadius: 10, padding: '8px 12px', textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: '#a09880', fontWeight: 600 }}>Risk : Reward (TP2)</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: pos.riskReward2 >= 2 ? '#16a34a' : '#c07a30' }}>
-                  1 : {pos.riskReward2}
-                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: pos.riskReward2 >= 2 ? '#16a34a' : '#c07a30' }}>1 : {pos.riskReward2}</div>
               </div>
             </div>
 
-            {/* ATR info */}
             <div style={{ background: 'rgba(0,0,0,0.04)', borderRadius: 8, padding: '7px 12px', marginBottom: 12, fontSize: 11, color: '#6b5e4e', lineHeight: 1.6 }}>
               📐 ATR(14) H1 = ${pos.atrVal?.toFixed(2)} · SL = 1.5× ATR · TP1 = 2.0× ATR · TP2 = 3.5× ATR
             </div>
 
-            {/* Signal checklist */}
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, color: '#a09880', fontWeight: 700, marginBottom: 6, letterSpacing: 0.5 }}>
-                CHECKLIST สัญญาณ {isBuy ? 'BUY' : 'SELL'}
-              </div>
+              <div style={{ fontSize: 11, color: '#a09880', fontWeight: 700, marginBottom: 6 }}>CHECKLIST สัญญาณ {isBuy ? 'BUY' : 'SELL'}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {pos.reasons.map((r, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', background: r.ok ? '#f0fdf4' : '#f8f5ef', borderRadius: 6, border: `1px solid ${r.ok ? '#bbf7d0' : '#e5e0d8'}` }}>
@@ -364,7 +591,6 @@ function FuturesCard({ pos }) {
           </>
         )}
 
-        {/* ── Disclaimer ── */}
         <div style={{ fontSize: 10, color: '#a09880', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, lineHeight: 1.6, marginTop: 4 }}>
           ⚠️ คำเตือน: การเทรด Futures มีความเสี่ยงสูง ไม่ใช่คำแนะนำการลงทุน
         </div>
@@ -378,29 +604,21 @@ function FuturesCard({ pos }) {
 // ─────────────────────────────────────────────
 function calcProb24h(score, ind) {
   if (!ind) return 50
-  let base = (score - 50) * 0.6 + 50
-  let adj = 0
+  let base = (score - 50) * 0.6 + 50, adj = 0
   if (ind.rsi !== undefined) {
-    if (ind.rsi > 65)      adj -= 5
-    else if (ind.rsi < 35) adj += 7
-    else if (ind.rsi > 55) adj += 3
-    else if (ind.rsi < 45) adj -= 3
+    if (ind.rsi > 65) adj -= 5; else if (ind.rsi < 35) adj += 7
+    else if (ind.rsi > 55) adj += 3; else if (ind.rsi < 45) adj -= 3
   }
   if (ind.pctChange !== undefined) {
-    if (ind.pctChange > 5)       adj -= 4
-    else if (ind.pctChange > 2)  adj += 2
-    else if (ind.pctChange < -5) adj += 5
-    else if (ind.pctChange < -2) adj -= 2
+    if (ind.pctChange > 5) adj -= 4; else if (ind.pctChange > 2) adj += 2
+    else if (ind.pctChange < -5) adj += 5; else if (ind.pctChange < -2) adj -= 2
   }
   if (ind.volPct !== undefined) {
     if (ind.volPct > 20 && ind.pctChange > 0) adj += 3
     if (ind.volPct > 20 && ind.pctChange < 0) adj -= 3
   }
   if (ind.btcChg !== undefined) adj += ind.btcChg > 0 ? 2 : -2
-  if (ind.fg !== undefined) {
-    if (ind.fg < 20)      adj += 4
-    else if (ind.fg > 75) adj -= 4
-  }
+  if (ind.fg !== undefined) { if (ind.fg < 20) adj += 4; else if (ind.fg > 75) adj -= 4 }
   if (ind.macroData?.macroScore !== undefined) adj += ind.macroData.macroScore * 0.5
   return Math.round(Math.min(Math.max(base + adj, 15), 85))
 }
@@ -417,35 +635,28 @@ const ASSETS = [
   { label: 'XAU/USD',  binance: 'PAXGUSDT', isGold: true,   decimals: 2 },
 ]
 async function fetchUSDTHB() {
-  try {
-    const r = await fetch('https://api.exchangerate-api.com/v4/latest/USD')
-    return (await r.json()).rates?.THB ?? 34.5
-  } catch { return 34.5 }
+  try { const r = await fetch('https://api.exchangerate-api.com/v4/latest/USD'); return (await r.json()).rates?.THB ?? 34.5 }
+  catch { return 34.5 }
 }
 function MultiAssetPrices() {
-  const [data, setData]       = useState([])
-  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState([]), [loading, setLoading] = useState(true)
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
         const thbRate = await fetchUSDTHB()
-        const syms    = [...new Set(ASSETS.filter(a => a.binance).map(a => a.binance))]
+        const syms = [...new Set(ASSETS.filter(a => a.binance).map(a => a.binance))]
         const results = await Promise.all(syms.map(s => fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${s}`).then(r => r.json())))
-        const pm = {}
-        syms.forEach((s, i) => { pm[s] = { price: parseFloat(results[i].lastPrice), chg: parseFloat(results[i].priceChangePercent) } })
+        const pm = {}; syms.forEach((s, i) => { pm[s] = { price: parseFloat(results[i].lastPrice), chg: parseFloat(results[i].priceChangePercent) } })
         const rows = ASSETS.map(a => {
           if (a.isUSDT) return { label: a.label, price: thbRate, chg: null, unit: ' ', decimals: a.decimals }
           const b = pm[a.binance]; if (!b) return null
           return { label: a.label, price: a.thbRate ? b.price * thbRate : b.price, chg: b.chg, unit: !a.thbRate ? '$ ' : ' ', decimals: a.decimals }
         }).filter(Boolean)
         setData(rows)
-      } catch (e) { console.error(e) }
-      finally { setLoading(false) }
+      } catch (e) { console.error(e) } finally { setLoading(false) }
     }
-    load()
-    const t = setInterval(load, 30000)
-    return () => clearInterval(t)
+    load(); const t = setInterval(load, 30000); return () => clearInterval(t)
   }, [])
   if (loading) return <div style={{ textAlign: 'center', color: '#b0a898', fontSize: 13, padding: 12 }}>กำลังโหลดราคา...</div>
   return (
@@ -453,8 +664,8 @@ function MultiAssetPrices() {
       {data.map((item, i) => {
         const isN = item.chg === null, up = !isN && item.chg >= 0
         const col = isN ? '#FF69B4' : up ? '#16a34a' : '#dc2626'
-        const bg  = isN ? '#f8f5ef' : up ? '#f0faf4' : '#fef2f2'
-        const bd  = isN ? '#ede9e0' : up ? '#bbf7d0' : '#fecaca'
+        const bg = isN ? '#f8f5ef' : up ? '#f0faf4' : '#fef2f2'
+        const bd = isN ? '#ede9e0' : up ? '#bbf7d0' : '#fecaca'
         return (
           <div key={i} style={{ background: bg, border: `1px solid ${bd}`, borderRadius: 10, padding: '10px 12px' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#a09880', marginBottom: 4 }}>{item.label}</div>
@@ -566,71 +777,45 @@ export default function App() {
   const [breakdown, setBreakdown]   = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [countdown, setCountdown]   = useState(AUTO_REFRESH_SEC)
-  const timerRef = useRef(null)
-  const countRef = useRef(null)
+  const timerRef = useRef(null), countRef = useRef(null)
 
   const load = useCallback(async (isRefresh = false) => {
     isRefresh ? setRefreshing(true) : setLoading(true)
     setError(null)
     try {
       const { h1, h4, btcCloses, fg, btcDom, ethThb, fundingLabel, fundingColor, macroData } = await fetchMarketData()
-
       const closes = h1.map(k => k.c), highs = h1.map(k => k.h)
-      const lows   = h1.map(k => k.l), vols  = h1.map(k => k.v)
-      const h4c    = h4.map(k => k.c)
-
-      const price       = closes[closes.length - 1]
+      const lows = h1.map(k => k.l), vols = h1.map(k => k.v)
+      const h4c = h4.map(k => k.c)
+      const price = closes[closes.length - 1]
       const price24hAgo = closes[closes.length - 25] ?? closes[0]
-      const pctChange   = ((price - price24hAgo) / price24hAgo) * 100
-
-      const ema9    = calcEMA(closes.slice(-60), 9)
-      const ema21   = calcEMA(closes.slice(-60), 21)
-      const ema55   = calcEMA(closes.slice(-60), 55)
-      const ema21h4 = calcEMA(h4c, 21)
-      const rsi     = calcRSI(closes.slice(-30), 14)
-      const atr     = calcATR(highs.slice(-30), lows.slice(-30), closes.slice(-30), 14)
+      const pctChange = ((price - price24hAgo) / price24hAgo) * 100
+      const ema9 = calcEMA(closes.slice(-60), 9), ema21 = calcEMA(closes.slice(-60), 21)
+      const ema55 = calcEMA(closes.slice(-60), 55), ema21h4 = calcEMA(h4c, 21)
+      const rsi = calcRSI(closes.slice(-30), 14)
+      const atr = calcATR(highs.slice(-30), lows.slice(-30), closes.slice(-30), 14)
       const { adx, plusDI, minusDI } = calcADX(highs.slice(-60), lows.slice(-60), closes.slice(-60), 14)
-      const { support, resistance }  = findSwings(highs, lows, 100, 3)
+      const { support, resistance } = findSwings(highs, lows, 100, 3)
       const { ratio: volRatio, pct: volPct } = calcVolumeTrend(vols)
-
       const btcChg = btcCloses.length >= 25
-        ? ((btcCloses[btcCloses.length - 1] - btcCloses[btcCloses.length - 25]) / btcCloses[btcCloses.length - 25]) * 100
-        : 0
-
-      const indicators = {
-        price, pctChange, ema9, ema21, ema55, ema21h4,
-        rsi, atr, adx, plusDI, minusDI,
-        volRatio, volPct, fg, btcChg, btcDom,
-        support, resistance, ethThb,
-        fundingLabel, fundingColor,
-        macroData,
-      }
-
+        ? ((btcCloses[btcCloses.length - 1] - btcCloses[btcCloses.length - 25]) / btcCloses[btcCloses.length - 25]) * 100 : 0
+      const indicators = { price, pctChange, ema9, ema21, ema55, ema21h4, rsi, atr, adx, plusDI, minusDI, volRatio, volPct, fg, btcChg, btcDom, support, resistance, ethThb, fundingLabel, fundingColor, macroData }
       setInd(indicators)
       setScore(calcForecastScore(indicators))
       setBreakdown(calcScoreBreakdown(indicators))
       setLastUpdate(new Date())
-    } catch (e) {
-      setError('โหลดไม่ได้: ' + e.message)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
+    } catch (e) { setError('โหลดไม่ได้: ' + e.message) }
+    finally { setLoading(false); setRefreshing(false) }
   }, [])
 
   const startTimers = useCallback(() => {
-    clearInterval(timerRef.current)
-    clearInterval(countRef.current)
+    clearInterval(timerRef.current); clearInterval(countRef.current)
     setCountdown(AUTO_REFRESH_SEC)
     countRef.current = setInterval(() => setCountdown(c => c <= 1 ? AUTO_REFRESH_SEC : c - 1), 1000)
     timerRef.current = setInterval(() => { load(true); setCountdown(AUTO_REFRESH_SEC) }, AUTO_REFRESH_SEC * 1000)
   }, [load])
 
-  useEffect(() => {
-    load().then(startTimers)
-    return () => { clearInterval(timerRef.current); clearInterval(countRef.current) }
-  }, [])
-
+  useEffect(() => { load().then(startTimers); return () => { clearInterval(timerRef.current); clearInterval(countRef.current) } }, [])
   const handleRefresh = () => { load(true); startTimers() }
 
   if (loading) return (
@@ -647,6 +832,7 @@ export default function App() {
   const probDown    = 100 - probUp
   const marketPhase = calcMarketPhase(ind)
   const futuresPos  = calcFuturesPosition(ind, score, marketPhase)
+  const spotAdv     = calcSpotAdvisor(ind, score)  // [NEW]
 
   const macroSummary = ind?.macroData
     ? `USD ${ind.macroData.usdStatus} · Gold ${ind.macroData.goldStatus} · ${ind.macroData.riskMode}`
@@ -693,6 +879,9 @@ export default function App() {
 
       {/* MARKET PHASE */}
       <MarketPhaseCard phase={marketPhase} />
+
+      {/* ── SPOT TRADING ADVISOR (NEW) ── */}
+      <SpotAdvisorCard adv={spotAdv} price={ind?.price} />
 
       {/* ── FUTURES POSITION ── */}
       <FuturesCard pos={futuresPos} />
@@ -754,8 +943,7 @@ export default function App() {
           bar={{ value: ind?.rsi ?? 0, max: 100, color: ind?.rsi > 70 ? '#e63946' : ind?.rsi < 30 ? '#c0392b' : '#f4a261' }} />
         <IndRow dotColor="#52b788" label="Volume Trend ยืนยันทิศทางราคา"
           value={`${(ind?.volPct ?? 0) >= 0 ? 'เพิ่มขึ้น +' : 'ลดลง '}${Math.abs(ind?.volPct ?? 0)}%`}
-          valueColor={(ind?.volPct ?? 0) >= 0 ? '#2d6a4f' : '#c0392b'}
-          last />
+          valueColor={(ind?.volPct ?? 0) >= 0 ? '#2d6a4f' : '#c0392b'} last />
       </Card>
 
       {/* SENTIMENT */}
@@ -772,17 +960,16 @@ export default function App() {
           valueColor={ind?.btcDom > 58 ? '#c0392b' : ind?.btcDom < 52 ? '#2d6a4f' : '#4a4035'} />
         <IndRow dotColor="#52b788" label="Funding Rate ค่าธรรมเนียม"
           value={ind?.fundingLabel ?? 'N/A (Spot)'}
-          valueColor={ind?.fundingColor ?? '#888'}
-          last />
+          valueColor={ind?.fundingColor ?? '#888'} last />
       </Card>
 
       {/* SUMMARY */}
       <Card>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           {[
-            { label: 'Technical', val: breakdown?.tech   ?? '—', ok: breakdown?.techOk },
-            { label: 'Sentiment', val: breakdown?.sent   ?? '—', ok: breakdown?.sentOk },
-            { label: 'Macro',     val: breakdown?.macro  ?? '—', ok: breakdown?.macroOk, sub: breakdown?.macroLabel },
+            { label: 'Technical', val: breakdown?.tech  ?? '—', ok: breakdown?.techOk },
+            { label: 'Sentiment', val: breakdown?.sent  ?? '—', ok: breakdown?.sentOk },
+            { label: 'Macro',     val: breakdown?.macro ?? '—', ok: breakdown?.macroOk, sub: breakdown?.macroLabel },
           ].map((item, i) => (
             <div key={i} style={{ flex: 1, textAlign: 'center', padding: '8px 4px', borderRadius: 10, background: item.ok === null ? '#f8f5ef' : item.ok ? '#f0faf4' : '#fdf0f0' }}>
               <div style={{ fontSize: 13, color: '#a09880', fontWeight: 600 }}>{item.label}</div>
