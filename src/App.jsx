@@ -407,7 +407,7 @@ function SpotAdvisorCard({ adv, price, ethThb }) {
           {/* Buy Zone */}
           <div style={{ background: '#f0fdf4', border: `1.5px solid ${adv.inBuyZone ? '#4ade80' : '#bbf7d0'}`, borderRadius: 10, padding: '10px 12px' }}>
             <div style={{ fontSize: 10, color: '#166534', fontWeight: 700, marginBottom: 4 }}>
-              🛒 โซนซื้อสะสม {adv.inBuyZone && <span style={{ background: '#16a34a', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>ราคาอยู่ในโซน!</span>}
+              🛒 โซนซื้อสะสม {adv.inBuyZone && <span style={{ background: '#16a34a', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>โซนนี้!</span>}
             </div>
             <div style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>{fmtThb(adv.buyZoneLow)} – {fmtThb(adv.buyZoneHigh)}</div>
             <div style={{ fontSize: 10, color: '#2d6a4f', marginTop: 4, lineHeight: 1.5 }}>
@@ -417,7 +417,7 @@ function SpotAdvisorCard({ adv, price, ethThb }) {
           {/* Sell Zone */}
           <div style={{ background: '#fff1f2', border: `1.5px solid ${adv.inSellZone ? '#f87171' : '#fca5a5'}`, borderRadius: 10, padding: '10px 12px' }}>
             <div style={{ fontSize: 10, color: '#9b2226', fontWeight: 700, marginBottom: 4 }}>
-              💰 โซนขายทำกำไร {adv.inSellZone && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>ราคาอยู่ในโซน!</span>}
+              💰 โซนขายทำกำไร {adv.inSellZone && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>โซนนี้!</span>}
             </div>
             <div style={{ fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>{fmtThb(adv.sellZoneLow)} – {fmtThb(adv.sellZoneHigh)}</div>
             <div style={{ fontSize: 10, color: '#9b2226', marginTop: 4, lineHeight: 1.5 }}>
