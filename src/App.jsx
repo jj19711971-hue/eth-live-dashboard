@@ -407,7 +407,7 @@ function SpotAdvisorCard({ adv, price, ethThb }) {
           {/* Buy Zone */}
           <div style={{ background: '#f0fdf4', border: `1.5px solid ${adv.inBuyZone ? '#4ade80' : '#bbf7d0'}`, borderRadius: 10, padding: '10px 12px' }}>
             <div style={{ fontSize: 10, color: '#166534', fontWeight: 700, marginBottom: 4 }}>
-              🛒 โซนซื้อสะสม {adv.inBuyZone && <span style={{ background: '#16a34a', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>โซนนี้!</span>}
+              🛒 โซนซื้อสะสม {adv.inBuyZone && <span style={{ background: '#16a34a', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>ราคานี้</span>}
             </div>
             <div style={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>{fmtThb(adv.buyZoneLow)} – {fmtThb(adv.buyZoneHigh)}</div>
             <div style={{ fontSize: 10, color: '#2d6a4f', marginTop: 4, lineHeight: 1.5 }}>
@@ -417,7 +417,7 @@ function SpotAdvisorCard({ adv, price, ethThb }) {
           {/* Sell Zone */}
           <div style={{ background: '#fff1f2', border: `1.5px solid ${adv.inSellZone ? '#f87171' : '#fca5a5'}`, borderRadius: 10, padding: '10px 12px' }}>
             <div style={{ fontSize: 10, color: '#9b2226', fontWeight: 700, marginBottom: 4 }}>
-              💰 โซนขายทำกำไร {adv.inSellZone && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>โซนนี้!</span>}
+              💰 โซนขายทำกำไร {adv.inSellZone && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 4, padding: '1px 5px', fontSize: 9 }}>ราคานี้</span>}
             </div>
             <div style={{ fontSize: 12, color: '#b91c1c', fontWeight: 700 }}>{fmtThb(adv.sellZoneLow)} – {fmtThb(adv.sellZoneHigh)}</div>
             <div style={{ fontSize: 10, color: '#9b2226', marginTop: 4, lineHeight: 1.5 }}>
@@ -1113,13 +1113,13 @@ function GoldMarketBlock() {
 		    display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8,
                     padding: '4px 10px', background: 'rgba(255,255,255,0.08)',
                     borderRadius: 8, width: 'fit-content',
-		    marginLeft: -90
+		    marginLeft: -100
                   }}>
                     <span style={{ fontSize: 14 }}>✅</span>
                     <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, letterSpacing: 0.5 }}>Confidence Score</span>
                   </div>
                   <div style={{ fontSize: 13, color: '#d1d5db', lineHeight: 1.6, marginBottom: 10,
-		     marginLeft: -90
+		     marginLeft: -100
  		}}>
                     ระดับความเชื่อมั่น :{' '}
                     <span style={{ color: goldData.confidence.color, fontWeight: 800, fontSize: 14 }}>
@@ -1128,7 +1128,7 @@ function GoldMarketBlock() {
                   </div>
 
                   <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, marginBottom: 10,
-		    marginLeft: -90
+		    marginLeft: -100
 		 }}>
                     โมเดลการวิเคราะห์ทางเทคนิคและปริมาณการซื้อขายใน 24 ชม.
                   </div>
@@ -1137,7 +1137,7 @@ function GoldMarketBlock() {
                   <div style={{
                     background: 'rgba(255,255,255,0.06)',
                     borderRadius: 10, padding: '8px 12px',
-		    marginLeft: -90,
+		    marginLeft: -100,
                   }}>
                     <div style={{ fontSize: 14, color: goldData.confidence.dirColor, fontWeight: 800, marginBottom: 2 }}>
                       {goldData.confidence.dirIcon} คาดการณ์: {goldData.confidence.direction}
