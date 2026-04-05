@@ -932,7 +932,7 @@ function GoldGauge({ score }) {
       {/* Center dot */}
       <circle cx={cx} cy={cy} r={5} fill="#9ca3af" />
       {/* Score text */}
-      <text x={cx} y={cy + 22} textAnchor="middle"
+      <text x={cx} y={cy + 25} textAnchor="middle"
         fontSize="15" fontWeight="800" fill="#ffffff" fontFamily="inherit">
         {score}%
       </text>
@@ -1087,8 +1087,8 @@ function GoldMarketBlock() {
 
             {/* ── ส่วนที่ 2: Confidence Score ── */}
             <div style={{ padding: '14px 16px 16px' }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#78350f', marginBottom: 12, letterSpacing: 0.5 }}>
-                🎯 คาดการณ์ราคาทองคำในอีก 24 ชั่วโมง
+              <div style={{ fontSize: 15, fontWeight: 700, color: '#78350f', marginBottom: 12, letterSpacing: 0.5 }}>
+                🎯 คาดการณ์ราคาในอีก 24 ชั่วโมง
               </div>
 
               <div style={{
@@ -1113,13 +1113,13 @@ function GoldMarketBlock() {
 		    display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8,
                     padding: '4px 10px', background: 'rgba(255,255,255,0.08)',
                     borderRadius: 8, width: 'fit-content',
-		    marginLeft: -70
+		    marginLeft: -90
                   }}>
                     <span style={{ fontSize: 14 }}>✅</span>
                     <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, letterSpacing: 0.5 }}>Confidence Score</span>
                   </div>
                   <div style={{ fontSize: 13, color: '#d1d5db', lineHeight: 1.6, marginBottom: 10,
-		     marginLeft: -70
+		     marginLeft: -90
  		}}>
                     ระดับความเชื่อมั่น :{' '}
                     <span style={{ color: goldData.confidence.color, fontWeight: 800, fontSize: 14 }}>
@@ -1128,16 +1128,16 @@ function GoldMarketBlock() {
                   </div>
 
                   <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, marginBottom: 10,
-		    marginLeft: -70
+		    marginLeft: -90
 		 }}>
-                    ตามโมเดลการวิเคราะห์ทางเทคนิคและปริมาณการซื้อขายใน 24 ชม.
+                    โมเดลการวิเคราะห์ทางเทคนิคและปริมาณการซื้อขายใน 24 ชม.
                   </div>
 
                   {/* Direction */}
                   <div style={{
                     background: 'rgba(255,255,255,0.06)',
                     borderRadius: 10, padding: '8px 12px',
-		    marginLeft: -70,
+		    marginLeft: -90,
                   }}>
                     <div style={{ fontSize: 14, color: goldData.confidence.dirColor, fontWeight: 800, marginBottom: 2 }}>
                       {goldData.confidence.dirIcon} คาดการณ์: {goldData.confidence.direction}
