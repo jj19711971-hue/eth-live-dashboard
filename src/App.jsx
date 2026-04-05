@@ -9,7 +9,7 @@ import {
   getSignal, fgLabel, fgColor
 } from './logic/logic.js'
 
-const AUTO_REFRESH_SEC = 30
+const AUTO_REFRESH_SEC = 60
 
 // ─────────────────────────────────────────────────────────────
 // MARKET PHASE — Breakout / Squeeze Detection
@@ -477,7 +477,7 @@ function SpotAdvisorCard({ adv, price, ethThb }) {
 
         {/* Disclaimer */}
         <div style={{ fontSize: 10, color: '#a09880', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, lineHeight: 1.6, marginTop: 10 }}>
-          ⚠️ หมายเหตุ: ความหมายและ คำอธิบาย ดูได้ใน README
+          ⚠️ หมายเหตุ: คำอธิบาย ดูได้ใน Readme
         </div>
       </div>
     </div>
@@ -606,7 +606,7 @@ function FuturesCard({ pos }) {
         )}
 
         <div style={{ fontSize: 10, color: '#a09880', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, lineHeight: 1.6, marginTop: 4 }}>
-          ⚠️ หมายเหตุ: ความหมายและ คำอธิบาย ดูได้ใน README
+          ⚠️ หมายเหตุ: คำอธิบาย ดูได้ใน Readme
         </div>
       </div>
     </div>
@@ -646,7 +646,7 @@ const ASSETS = [
   { label: 'USDT/THB', binance: null,        isUSDT: true,   decimals: 2 },
   { label: 'DOGE/THB', binance: 'DOGEUSDT', thbRate: true,  decimals: 4 },
   { label: 'XRP/THB',  binance: 'XRPUSDT',  thbRate: true,  decimals: 2 },
-  { label: 'XAU/USD',  binance: 'PAXGUSDT', isGold: true,   decimals: 2 },
+  { label: 'XAU/USD (ทองคำ)',  binance: 'PAXGUSDT', isGold: true,   decimals: 2 },
 ]
 async function fetchUSDTHB() {
   try { const r = await fetch('https://api.exchangerate-api.com/v4/latest/USD'); return (await r.json()).rates?.THB ?? 34.5 }
@@ -774,6 +774,387 @@ function MarketPhaseCard({ phase }) {
           <span style={{ fontSize: 14 }}>{ic.r}</span>
           <span style={{ fontSize: 12, color: phase.color, fontWeight: 700 }}>{phase.hint}</span>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// GOLD MARKET BLOCK
+// ส่วน 1: ราคาทองคำวันนี้ (บาททองคำ 96.5%)
+// ส่วน 2: Confidence Score คาดการณ์ 24 ชม.
+//
+// แหล่งข้อมูล:
+//   - Binance PAXGUSDT (PAXG ≈ 1 ออนซ์ทองคำ) → XAU/USD
+//   - ExchangeRate API → USD/THB
+//   - คำนวณราคาบาททองคำ 96.5% จาก XAU/USD × rate × factor
+//   - Confidence Score = คำนวณจาก PAXG 24h OHLCV (RSI, trend, volatility)
+// ─────────────────────────────────────────────────────────────
+
+// น้ำหนัก 1 บาทไทย = 15.244 กรัม, ทอง 96.5% = 0.965
+// 1 ออนซ์ troy = 31.1035 กรัม
+// ราคาต่อบาท (THB) = XAU_USD × (15.244 / 31.1035) × 0.965 × USD_THB
+const BAHT_GRAM = 15.244      // กรัมต่อบาทไทย
+const TROY_OZ   = 31.1035     // กรัมต่อออนซ์ troy
+const PURITY    = 0.965       // ความบริสุทธิ์ 96.5%
+const MAKING_CHARGE = 600     // ค่ากำเกน (รูปพรรณ) ต่อบาท ประมาณการ
+const SPREAD_BAR    = 200     // ส่วนต่างซื้อ-ขาย ทองแท่ง
+
+function calcGoldBahtPrice(xauUsd, usdThb) {
+  if (!xauUsd || !usdThb) return null
+  // ราคาต่อกรัม USD
+  const pricePerGramUsd = xauUsd / TROY_OZ
+  // ราคา 1 บาทไทย (15.244g) × ความบริสุทธิ์ 96.5% × อัตราแลกเปลี่ยน
+  const pricePerBahtThb = pricePerGramUsd * BAHT_GRAM * PURITY * usdThb
+
+  // ทองแท่ง: ส่วนต่างซื้อ-ขาย ±SPREAD/2
+  const barBuy  = Math.round((pricePerBahtThb - SPREAD_BAR / 2) / 50) * 50
+  const barSell = Math.round((pricePerBahtThb + SPREAD_BAR / 2) / 50) * 50
+
+  // ทองรูปพรรณ: รับซื้อต่ำกว่า, ขายสูงกว่า (ค่ากำเกน + ค่าแรง)
+  const jewelBuy  = Math.round((pricePerBahtThb - MAKING_CHARGE) / 50) * 50
+  const jewelSell = Math.round((pricePerBahtThb + MAKING_CHARGE) / 50) * 50
+
+  return { barBuy, barSell, jewelBuy, jewelSell, basePrice: Math.round(pricePerBahtThb) }
+}
+
+// Confidence Score คำนวณจาก PAXG OHLCV 24h
+// ใช้ข้อมูล: 24h change, volatility (high-low), trend (เทียบ 7d avg)
+function calcGoldConfidence(paxgData) {
+  if (!paxgData) return { score: 50, level: 'ปานกลาง', direction: 'ทรงตัว', color: '#f59e0b', rangeMin: 0, rangeMax: 0 }
+
+  const { price, change24h, high24h, low24h, priceAvg7d } = paxgData
+
+  let score = 50
+  // 1. Trend: ราคาปัจจุบัน vs ค่าเฉลี่ย 7 วัน
+  if (priceAvg7d) {
+    const trendPct = ((price - priceAvg7d) / priceAvg7d) * 100
+    if (trendPct > 1.5)       score += 15
+    else if (trendPct > 0.5)  score += 8
+    else if (trendPct < -1.5) score -= 15
+    else if (trendPct < -0.5) score -= 8
+  }
+
+  // 2. Momentum 24h change
+  if (change24h > 1.5)       score += 18
+  else if (change24h > 0.5)  score += 10
+  else if (change24h > 0)    score += 4
+  else if (change24h < -1.5) score -= 18
+  else if (change24h < -0.5) score -= 10
+  else if (change24h < 0)    score -= 4
+
+  // 3. Volatility (range แคบ = ไม่แน่ใจ, range กว้าง + ขึ้น = ดี)
+  const rangePct = high24h && low24h ? ((high24h - low24h) / low24h) * 100 : 0
+  if (rangePct > 2 && change24h > 0)  score += 10
+  else if (rangePct > 2 && change24h < 0) score -= 8
+  else if (rangePct < 0.5) score -= 5  // sideways
+
+  score = Math.max(10, Math.min(95, Math.round(score)))
+
+  // ระดับความเชื่อมั่น
+  let level = 'ต่ำ', color = '#ef4444'
+  if (score >= 75)      { level = 'สูงมาก';  color = '#16a34a' }
+  else if (score >= 60) { level = 'สูง';     color = '#22c55e' }
+  else if (score >= 45) { level = 'ปานกลาง'; color = '#f59e0b' }
+  else if (score >= 30) { level = 'ต่ำ';     color = '#f97316' }
+  else                  { level = 'ต่ำมาก';  color = '#ef4444' }
+
+  // ทิศทางคาดการณ์
+  let direction = 'ทรงตัว', dirIcon = '→', dirColor = '#f59e0b'
+  if (score >= 60)      { direction = 'ขึ้น';   dirIcon = '↑'; dirColor = '#16a34a' }
+  else if (score < 40)  { direction = 'ลง';    dirIcon = '↓'; dirColor = '#ef4444' }
+
+  // ช่วงราคาคาดการณ์ 24h (±ATR estimate จาก range 24h)
+  const atrEst = high24h && low24h ? (high24h - low24h) * 0.8 : price * 0.005
+  const factor = score >= 60 ? 1 : score < 40 ? -0.5 : 0
+  const rangeMin = Math.round((price + factor * atrEst * 0.3) * 100) / 100
+  const rangeMax = Math.round((price + factor * atrEst * 1.2 + atrEst * 0.2) * 100) / 100
+
+  return { score, level, direction, dirIcon, dirColor, color, rangeMin, rangeMax }
+}
+
+// ── Gauge SVG ─────────────────────────────────────────────────
+function GoldGauge({ score }) {
+  // Half-circle gauge: 180° arc from left to right
+  const r = 60, cx = 90, cy = 80
+  const circumference = Math.PI * r  // half circle
+  const offset = circumference * (1 - score / 100)
+
+  // Color gradient: red(0) → orange(40) → yellow(60) → green(100)
+  const getColor = (s) => {
+    if (s >= 75) return '#22c55e'
+    if (s >= 55) return '#86efac'
+    if (s >= 40) return '#f59e0b'
+    if (s >= 25) return '#f97316'
+    return '#ef4444'
+  }
+  const needleAngle = -90 + (score / 100) * 180  // -90° to +90°
+  const rad = (needleAngle * Math.PI) / 180
+  const nx = cx + r * 0.85 * Math.cos(rad)
+  const ny = cy + r * 0.85 * Math.sin(rad)
+
+  return (
+    <svg width={180} height={100} viewBox="0 0 180 100">
+      {/* Background arc segments: red, orange, yellow, green */}
+      {[
+        { start: 180, end: 225, color: '#ef4444' },
+        { start: 225, end: 270, color: '#f97316' },
+        { start: 270, end: 315, color: '#f59e0b' },
+        { start: 315, end: 360, color: '#22c55e' },
+      ].map((seg, i) => {
+        const s = (seg.start * Math.PI) / 180
+        const e = (seg.end * Math.PI) / 180
+        const x1 = cx + r * Math.cos(s), y1 = cy + r * Math.sin(s)
+        const x2 = cx + r * Math.cos(e), y2 = cy + r * Math.sin(e)
+        const large = seg.end - seg.start > 180 ? 1 : 0
+        return (
+          <path key={i}
+            d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`}
+            fill={seg.color} opacity={0.25}
+          />
+        )
+      })}
+      {/* Arc track (background) */}
+      <path
+        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+        fill="none" stroke="#374151" strokeWidth="10" strokeLinecap="round"
+      />
+      {/* Arc progress */}
+      <path
+        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+        fill="none" stroke={getColor(score)} strokeWidth="10" strokeLinecap="round"
+        strokeDasharray={`${(score / 100) * circumference} ${circumference}`}
+        style={{ transition: 'stroke-dasharray 1s ease, stroke 0.5s' }}
+      />
+      {/* Needle */}
+      <line x1={cx} y1={cy} x2={nx} y2={ny}
+        stroke="#e5e7eb" strokeWidth="2.5" strokeLinecap="round" />
+      {/* Center dot */}
+      <circle cx={cx} cy={cy} r={5} fill="#9ca3af" />
+      {/* Score text */}
+      <text x={cx} y={cy + 22} textAnchor="middle"
+        fontSize="22" fontWeight="800" fill="#ffffff" fontFamily="inherit">
+        {score}%
+      </text>
+    </svg>
+  )
+}
+
+// ── Gold Block main component ─────────────────────────────────
+function GoldMarketBlock() {
+  const [goldData, setGoldData]   = useState(null)
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState(null)
+  const [lastFetch, setLastFetch] = useState(null)
+
+  useEffect(() => {
+    async function fetchGold() {
+      setLoading(true)
+      setError(null)
+      try {
+        // ดึง PAXG (≈ 1 troy oz ทองคำ) จาก Binance + USD/THB
+        const [paxgRes, usdthbRes, paxg7dRes] = await Promise.all([
+          fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=PAXGUSDT'),
+          fetch('https://api.exchangerate-api.com/v4/latest/USD'),
+          fetch('https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=1d&limit=7'),
+        ])
+
+        const paxg   = await paxgRes.json()
+        const rates  = await usdthbRes.json()
+        const klines = await paxg7dRes.json()
+
+        const price    = parseFloat(paxg.lastPrice)
+        const change24h = parseFloat(paxg.priceChangePercent)
+        const high24h  = parseFloat(paxg.highPrice)
+        const low24h   = parseFloat(paxg.lowPrice)
+        const usdThb   = rates?.rates?.THB ?? 34.5
+
+        // ค่าเฉลี่ย 7 วัน (close prices)
+        const closes7d = klines.map(k => parseFloat(k[4]))
+        const priceAvg7d = closes7d.reduce((a, b) => a + b, 0) / closes7d.length
+
+        const paxgData = { price, change24h, high24h, low24h, priceAvg7d, usdThb }
+        const goldPrices = calcGoldBahtPrice(price, usdThb)
+        const confidence = calcGoldConfidence(paxgData)
+
+        setGoldData({ price, change24h, high24h, low24h, usdThb, goldPrices, confidence })
+        setLastFetch(new Date())
+      } catch (e) {
+        setError('ดึงข้อมูลทองไม่ได้: ' + e.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchGold()
+    const t = setInterval(fetchGold, 120000) // refresh ทุก 1 นาที
+    return () => clearInterval(t)
+  }, [])
+
+  const fmtThb = (n) => n?.toLocaleString('th', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—'
+  const fmtUsd = (n) => n?.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '—'
+
+  return (
+    <div style={{ margin: '8px 16px', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+
+      {/* ── Header ── */}
+      <div style={{
+        background: 'linear-gradient(135deg, #78350f 0%, #a16207 50%, #ca8a04 100%)',
+        padding: '12px 18px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 24 }}>🥇</span>
+          <div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: 600, letterSpacing: 1 }}>GOLD MARKET · XAUUSD</div>
+            <div style={{ fontSize: 16, color: '#fff', fontWeight: 900 }}>ตลาดทองคำ</div>
+          </div>
+        </div>
+        {!loading && goldData && (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>PAXG/USD</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: '#fef08a' }}>${fmtUsd(goldData.price)}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: goldData.change24h >= 0 ? '#86efac' : '#fca5a5' }}>
+              {goldData.change24h >= 0 ? '▲ +' : '▼ '}{Math.abs(goldData.change24h).toFixed(2)}%
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Body ── */}
+      <div style={{ background: '#fffbf0', border: '1.5px solid #fde68a', borderTop: 'none', borderRadius: '0 0 16px 16px' }}>
+
+        {loading ? (
+          <div style={{ padding: 24, textAlign: 'center', color: '#a16207', fontSize: 13 }}>⟳ กำลังโหลดราคาทองคำ...</div>
+        ) : error ? (
+          <div style={{ padding: 16, color: '#9b2226', fontSize: 12, textAlign: 'center' }}>{error}</div>
+        ) : goldData ? (
+          <>
+            {/* ── ส่วนที่ 1: ราคาทองคำวันนี้ ── */}
+            <div style={{ padding: '14px 16px 10px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#78350f', marginBottom: 10, letterSpacing: 0.5 }}>
+                💛 ราคาทองคำวันนี้ — ความบริสุทธิ์ 96.5%
+              </div>
+
+              {/* Table header */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+                background: '#f59e0b', borderRadius: '8px 8px 0 0',
+                padding: '7px 10px',
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>ประเภท</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', textAlign: 'right' }}>รับซื้อ (฿)</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', textAlign: 'right' }}>ขายออก (฿)</div>
+              </div>
+
+              {/* Row: ทองแท่ง */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+                background: '#fff', padding: '10px 10px',
+                borderBottom: '1px solid #fde68a',
+              }}>
+                <div style={{ fontSize: 12, color: '#4a4035', fontWeight: 600 }}>ทองคำแท่ง</div>
+                <div style={{ fontSize: 13, color: '#16a34a', fontWeight: 800, textAlign: 'right' }}>
+                  {fmtThb(goldData.goldPrices.barBuy)}
+                </div>
+                <div style={{ fontSize: 13, color: '#dc2626', fontWeight: 800, textAlign: 'right' }}>
+                  {fmtThb(goldData.goldPrices.barSell)}
+                </div>
+              </div>
+
+              {/* Row: ทองรูปพรรณ */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+                background: '#fefce8', padding: '10px 10px',
+                borderRadius: '0 0 8px 8px',
+              }}>
+                <div style={{ fontSize: 12, color: '#4a4035', fontWeight: 600 }}>ทองรูปพรรณ</div>
+                <div style={{ fontSize: 13, color: '#16a34a', fontWeight: 800, textAlign: 'right' }}>
+                  {fmtThb(goldData.goldPrices.jewelBuy)}
+                </div>
+                <div style={{ fontSize: 13, color: '#dc2626', fontWeight: 800, textAlign: 'right' }}>
+                  {fmtThb(goldData.goldPrices.jewelSell)}
+                </div>
+              </div>
+
+              {/* Note */}
+              <div style={{ fontSize: 11, color: '#a09880', marginTop: 6, lineHeight: 1.5 }}>
+                ⚠️ คำนวณจาก PAXG/USD (Binance) × USD/THB × น้ำหนัก 1 บาท 15.244g × 96.5% — เป็นราคาประมาณการ อาจแตกต่างจากราคาร้านทองจริง
+              </div>
+            </div>
+
+            <div style={{ height: 1, background: '#fde68a', margin: '0 16px' }} />
+
+            {/* ── ส่วนที่ 2: Confidence Score ── */}
+            <div style={{ padding: '14px 16px 16px' }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#78350f', marginBottom: 12, letterSpacing: 0.5 }}>
+                🎯 คาดการณ์ราคาทองคำในอีก 24 ชั่วโมง
+              </div>
+
+              <div style={{
+                background: '#1f2937',
+                borderRadius: 14,
+                padding: '14px 16px',
+                display: 'flex', alignItems: 'center', gap: 16,
+              }}>
+                {/* Gauge */}
+                <div style={{ flexShrink: 0 }}>
+                  <GoldGauge score={goldData.confidence.score} />
+                </div>
+
+                {/* Info */}
+                <div style={{ flex: 1 }}>
+                  {/* Confidence Level header */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8,
+                    padding: '4px 10px', background: 'rgba(255,255,255,0.08)',
+                    borderRadius: 8, width: 'fit-content',
+                  }}>
+                    <span style={{ fontSize: 14 }}>✅</span>
+                    <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, letterSpacing: 0.5 }}>Confidence Score</span>
+                  </div>
+
+                  <div style={{ fontSize: 13, color: '#d1d5db', lineHeight: 1.6, marginBottom: 10 }}>
+                    ระดับความเชื่อมั่น :{' '}
+                    <span style={{ color: goldData.confidence.color, fontWeight: 800, fontSize: 14 }}>
+                      {goldData.confidence.level}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, marginBottom: 10 }}>
+                    ตามโมเดลการวิเคราะห์ทางเทคนิคและปริมาณการซื้อขายใน 24 ชม.
+                  </div>
+
+                  {/* Direction */}
+                  <div style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    borderRadius: 10, padding: '8px 12px',
+                  }}>
+                    <div style={{ fontSize: 14, color: goldData.confidence.dirColor, fontWeight: 800, marginBottom: 2 }}>
+                      {goldData.confidence.dirIcon} คาดการณ์: {goldData.confidence.direction}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#9ca3af' }}>
+                      ${fmtUsd(Math.min(goldData.confidence.rangeMin, goldData.confidence.rangeMax))} –{' '}
+                      ${fmtUsd(Math.max(goldData.confidence.rangeMin, goldData.confidence.rangeMax))} USD
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sub note */}
+              <div style={{ fontSize: 11, color: '#a09880', marginTop: 8, lineHeight: 1.5 }}>
+                ⚠️ Confidence Score คำนวณจาก Trend 7 วัน + Momentum 24h + Volatility
+              </div>
+            </div>
+
+            {/* Last update */}
+            {lastFetch && (
+              <div style={{ padding: '0 16px 10px', fontSize: 11, color: '#b0a898' }}>
+                อัปเดต: {lastFetch.toLocaleTimeString('th-TH')} · รีเฟรชทุก 2 นาที
+              </div>
+            )}
+          </>
+        ) : null}
       </div>
     </div>
   )
@@ -1146,10 +1527,13 @@ export default function App() {
             </div>
           )}
           <div style={{ fontSize: 13, color: '#a09880', marginTop: 6 }}>
-            ⚠️ หมายเหตุ: ความหมายและ คำอธิบาย ดูได้ใน README 
+            ⚠️ หมายเหตุ: คำอธิบาย ดูได้ใน Readme 
           </div>
         </div>
       </Card>
+
+      {/* GOLD MARKET */}
+      <GoldMarketBlock />
 
       {/* README */}
       <ReadmeBlock />
