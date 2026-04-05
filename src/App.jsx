@@ -477,7 +477,7 @@ function SpotAdvisorCard({ adv, price, ethThb }) {
 
         {/* Disclaimer */}
         <div style={{ fontSize: 10, color: '#a09880', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, lineHeight: 1.6, marginTop: 10 }}>
-          ⚠️ เพิ่มเติม: RSI ต่ำกว่า 30 ขายมากเกินไป หรือ Oversold ระวังแรงซื้อเพื่อสะสม RSI:50 โซนวัดใจ  Neutral ราคามักออกข้างหรือ Sideway รอเลือกทาง RSI มากกว่า 70 ซื้อมากเกินไป หรือ Overbought ระวังแรงเทขายทำกำไร ⚠️ ขยายความ: TP1/TP2 (Take Profit) คือจุดขายทำกำไร SL (Stop Loss) คือจุดตัดขาดทุน ⚠️ แนวต้าน Swing High หมายความว่า: เมื่อไม่กี่ชั่วโมงที่ผ่านมา ราคาเคยขึ้นไปสูงสุด แล้วร่วงลงมา
+          ⚠️ หมายเหตุ: ความหมายและ คำอธิบาย ดูได้ใน README
         </div>
       </div>
     </div>
@@ -606,7 +606,7 @@ function FuturesCard({ pos }) {
         )}
 
         <div style={{ fontSize: 10, color: '#a09880', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, lineHeight: 1.6, marginTop: 4 }}>
-          ⚠️ ขยายความ: ATR (Average True Range) คือค่าเฉลี่ยความแกว่งของราคา ระยะการ วิ่ง ของราคาในหนึ่งช่วงเวลา เช่น กราฟ 1 ชั่วโมง ราคา มีการวิ่งขึ้นและลงเฉลี่ยอยู่ที่ประมาณกี่ดอลลาร์ ถ้า ATR สูงขึ้น: แปลว่าตลาดกำลัง "ผันผวนรุนแรง" (แท่งเทียนยาวๆ) ถ้า ATR ต่ำลง: แปลว่าตลาดกำลัง "เงียบเหงา" ราคาแกว่งตัวแคบๆ (แท่งเทียนสั้นๆ)
+          ⚠️ หมายเหตุ: ความหมายและ คำอธิบาย ดูได้ใน README
         </div>
       </div>
     </div>
@@ -774,6 +774,149 @@ function MarketPhaseCard({ phase }) {
           <span style={{ fontSize: 14 }}>{ic.r}</span>
           <span style={{ fontSize: 12, color: phase.color, fontWeight: 700 }}>{phase.hint}</span>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────
+// README BLOCK — การแนะนำและคำอธิบาย
+// ─────────────────────────────────────────────
+const README_ITEMS = [
+  {
+    num: 1,
+    title: 'หัวข้อที่ 1',
+    content: 'Text1',
+  },
+  {
+    num: 2,
+    title: 'หัวข้อที่ 2',
+    content: 'Text2',
+  },
+  {
+    num: 3,
+    title: 'RSI/Oversold/Overbought/Swing High/TP/SL',
+    content: '⚠️ RSI ถ้าต่ำกว่า 30 คือสภาวะ ขายมากเกินไป หรือ Oversold ให้ระวังแรงซื้อเพื่อสะสม และถ้า RSI อยู่ในโซน 50 เรียกว่าโซนวัดใจ Neutral ราคามักออกข้างหรือ Sideway รอเลือกทาง รอข่าวหรือเหตุการณ์ใหม่ๆ มากระตุ้น และถ้า RSI มากกว่า 70 จะอยู่ในโซน ซื้อมากเกินไป หรือ Overbought ให้ระวังแรงเทขายทำกำไร ⚠️ ขยายความ: TP1/TP2 (Take Profit) คือจุดตั้งขายทำกำไร ส่วน SL (Stop Loss) คือตั้งจุดตัดขาดทุน ⚠️ แนวต้าน Swing High (สวิงไฮ) คือจุดที่ราคาวิ่งขึ้นไปทำ "จุดสูงสุด" ในช่วงเวลาหนึ่ง แล้วเริ่มมีการกลับตัวลดลงมา ทำให้เกิดลักษณะเป็น "ยอดแหลม" หรือ "ภูเขา" บนกราฟ เมื่อจุดนี้เกิดขึ้นแล้ว ในทางเทคนิคเราจะใช้จุดนี้เป็น แนวต้าน สำหรับการวิ่งขึ้นครั้งต่อไป',
+  },
+  {
+    num: 4,
+    title: 'ATR Average True Range',
+    content: 'อินดิเคเตอร์ทางเทคนิคที่ใช้สำหรับ "วัดความผันผวน" คือค่าเฉลี่ยความแกว่ง ความผันผวนของราคา ระยะการวิ่ง ของราคาในหนึ่งช่วงเวลา เช่นกราฟ 1 ชั่วโมง ราคา มีการวิ่งขึ้นและลงเฉลี่ยอยู่ที่ประมาณกี่ดอลลาร์ ถ้า ATR สูงขึ้น: แปลว่าตลาดกำลัง "ผันผวนรุนแรง" (แท่งเทียนยาวๆ) ถ้า ATR ต่ำลง: แปลว่าตลาดกำลัง "เงียบเหงา" ราคาแกว่งตัวแคบๆ (แท่งเทียนสั้นๆ) ATR ไม่ได้บอก "ทิศทาง" ว่าราคาจะขึ้นหรือลง แต่บอกว่า ปัจจุบันราคาวิ่งแรงแค่ไหน',
+  },
+  {
+    num: 5,
+    title: 'Risk-on Risk-off และ Neutral',
+    content: 'อธิบาย: Risk-on นักลงทุนมีมุมมองในแง่บวกต่อเศรษฐกิจ เชื่อว่าตลาดจะเติบโต จึงย้ายเงินจากสินทรัพย์ที่ปลอดภัยไปลงทุนในสินทรัพย์ที่ให้ผลตอบแทนสูงกว่า Risk-off ตลาดเต็มไปด้วยความกังวล เช่น มีข่าวสงคราม, ตัวเลขเศรษฐกิจแย่กว่าคาด หรือเงินเฟ้อพุ่งสูง นักลงทุนจะเทขายสินทรัพย์เสี่ยงเพื่อรักษาเงินต้น Neutral หมายถึงสภาวะ สมดุล หรือ "ไร้ทิศทางที่ชัดเจน" ภาวะไม่เลือกข้าง ไม่มีแรงส่ง',
+  },
+]
+
+function ReadmeBlock() {
+  const [openIdx, setOpenIdx] = useState(null)
+
+  const toggle = (i) => setOpenIdx(prev => prev === i ? null : i)
+
+  return (
+    <div style={{ margin: '8px 16px' }}>
+      {/* Header card */}
+      <div style={{
+        background: 'linear-gradient(135deg, #1E3A5F 0%, #2d5282 100%)',
+        borderRadius: '14px 14px 0 0',
+        padding: '14px 18px',
+        display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <span style={{ fontSize: 22 }}>📖</span>
+        <div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+            README
+          </div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: '#ffffff' }}>
+            การแนะนำและคำอธิบาย
+          </div>
+        </div>
+      </div>
+
+      {/* Items */}
+      <div style={{
+        background: '#ffffff',
+        border: '1px solid #c7d9f0',
+        borderTop: 'none',
+        borderRadius: '0 0 14px 14px',
+        overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+      }}>
+        {README_ITEMS.map((item, i) => {
+          const isOpen = openIdx === i
+          const isLast = i === README_ITEMS.length - 1
+
+          return (
+            <div key={i}>
+              {/* Row button */}
+              <button
+                onClick={() => toggle(i)}
+                style={{
+                  width: '100%',
+                  background: isOpen ? '#eef4fb' : '#ffffff',
+                  border: 'none',
+                  borderBottom: isLast && !isOpen ? 'none' : '1px solid #ddeaf8',
+                  padding: '13px 18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  textAlign: 'left',
+                  transition: 'background 0.15s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {/* Number badge */}
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: isOpen ? '#1E3A5F' : '#ddeaf8',
+                    color: isOpen ? '#ffffff' : '#1E3A5F',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 800, flexShrink: 0,
+                    transition: 'background 0.2s, color 0.2s',
+                  }}>
+                    {item.num}
+                  </div>
+                  <span style={{
+                    fontSize: 13, fontWeight: 600,
+                    color: isOpen ? '#1E3A5F' : '#3a3028',
+                  }}>
+                    {item.title}
+                  </span>
+                </div>
+                {/* Chevron */}
+                <span style={{
+                  fontSize: 12, color: '#6b8aad',
+                  transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.2s',
+                  display: 'inline-block',
+                }}>
+                  ▼
+                </span>
+              </button>
+
+              {/* Content panel */}
+              {isOpen && (
+                <div style={{
+                  padding: '14px 18px 16px 58px',
+                  background: '#f5f9ff',
+                  borderBottom: isLast ? 'none' : '1px solid #ddeaf8',
+                }}>
+                  <div style={{
+                    fontSize: 15, color: '#2c3e50',
+                    lineHeight: 1.8,
+                    whiteSpace: 'pre-wrap',
+                  }}>
+                    {item.content}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -1003,10 +1146,13 @@ export default function App() {
             </div>
           )}
           <div style={{ fontSize: 13, color: '#a09880', marginTop: 6 }}>
-            ⚠️ อธิบาย: Risk-on นักลงทุนมีมุมมองในแง่บวกต่อเศรษฐกิจ เชื่อว่าตลาดจะเติบโต จึงย้ายเงินจากสินทรัพย์ที่ปลอดภัยไปลงทุนในสินทรัพย์ที่ให้ผลตอบแทนสูงกว่า Risk-off ตลาดเต็มไปด้วยความกังวล เช่น มีข่าวสงคราม, ตัวเลขเศรษฐกิจแย่กว่าคาด หรือเงินเฟ้อพุ่งสูง นักลงทุนจะเทขายสินทรัพย์เสี่ยงเพื่อรักษาเงินต้น
+            ⚠️ หมายเหตุ: ความหมายและ คำอธิบาย ดูได้ใน README 
           </div>
         </div>
       </Card>
+
+      {/* README */}
+      <ReadmeBlock />
 
       {/* MULTI-ASSET */}
       <Card>
