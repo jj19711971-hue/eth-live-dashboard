@@ -1095,7 +1095,10 @@ function GoldMarketBlock() {
                 background: '#1f2937',
                 borderRadius: 14,
                 padding: '14px 16px',
-                display: 'flex', alignItems: 'center', gap: 16,
+                display: 'flex',
+		alignItems: 'center',
+		gap: 8,
+		justifyContent: 'flex-start',
               }}>
                 {/* Gauge */}
                 <div style={{ flexShrink: 0 }}>
@@ -1106,22 +1109,27 @@ function GoldMarketBlock() {
                 <div style={{ flex: 1 }}>
                   {/* Confidence Level header */}
                   <div style={{
-                    display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8,
+                    flex: 1,
+		    display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8,
                     padding: '4px 10px', background: 'rgba(255,255,255,0.08)',
                     borderRadius: 8, width: 'fit-content',
+		    marginLeft: -70
                   }}>
                     <span style={{ fontSize: 14 }}>✅</span>
                     <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, letterSpacing: 0.5 }}>Confidence Score</span>
                   </div>
-
-                  <div style={{ fontSize: 13, color: '#d1d5db', lineHeight: 1.6, marginBottom: 10 }}>
+                  <div style={{ fontSize: 13, color: '#d1d5db', lineHeight: 1.6, marginBottom: 10,
+		     marginLeft: -70
+ 		}}>
                     ระดับความเชื่อมั่น :{' '}
                     <span style={{ color: goldData.confidence.color, fontWeight: 800, fontSize: 14 }}>
                       {goldData.confidence.level}
                     </span>
                   </div>
 
-                  <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, marginBottom: 10,
+		    marginLeft: -70
+		 }}>
                     ตามโมเดลการวิเคราะห์ทางเทคนิคและปริมาณการซื้อขายใน 24 ชม.
                   </div>
 
@@ -1129,6 +1137,7 @@ function GoldMarketBlock() {
                   <div style={{
                     background: 'rgba(255,255,255,0.06)',
                     borderRadius: 10, padding: '8px 12px',
+		    marginLeft: -70,
                   }}>
                     <div style={{ fontSize: 14, color: goldData.confidence.dirColor, fontWeight: 800, marginBottom: 2 }}>
                       {goldData.confidence.dirIcon} คาดการณ์: {goldData.confidence.direction}
