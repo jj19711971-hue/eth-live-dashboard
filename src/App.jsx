@@ -928,12 +928,12 @@ function GoldGauge({ score }) {
       />
       {/* Needle */}
       <line x1={cx} y1={cy} x2={nx} y2={ny}
-        stroke="#e5e7eb" strokeWidth="1.5" strokeLinecap="round" />
+        stroke="#e5e7eb" strokeWidth="0" strokeLinecap="round" />
       {/* Center dot */}
       <circle cx={cx} cy={cy} r={5} fill="#9ca3af" />
       {/* Score text */}
-      <text x={cx} y={cy + 25} textAnchor="middle"
-        fontSize="15" fontWeight="800" fill="#ffffff" fontFamily="inherit">
+      <text x={cx} y={cy + 22} textAnchor="middle"
+        fontSize="18" fontWeight="800" fill="#ffffff" fontFamily="inherit">
         {score}%
       </text>
     </svg>
