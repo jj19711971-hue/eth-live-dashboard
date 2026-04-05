@@ -876,7 +876,7 @@ function calcGoldConfidence(paxgData) {
 // ── Gauge SVG ─────────────────────────────────────────────────
 function GoldGauge({ score }) {
   // Half-circle gauge: 180° arc from left to right
-  const r = 60, cx = 90, cy = 80
+  const r = 30, cx = 45, cy = 40
   const circumference = Math.PI * r  // half circle
   const offset = circumference * (1 - score / 100)
 
@@ -917,23 +917,23 @@ function GoldGauge({ score }) {
       {/* Arc track (background) */}
       <path
         d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-        fill="none" stroke="#374151" strokeWidth="10" strokeLinecap="round"
+        fill="none" stroke="#374151" strokeWidth="5" strokeLinecap="round"
       />
       {/* Arc progress */}
       <path
         d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-        fill="none" stroke={getColor(score)} strokeWidth="10" strokeLinecap="round"
+        fill="none" stroke={getColor(score)} strokeWidth="5" strokeLinecap="round"
         strokeDasharray={`${(score / 100) * circumference} ${circumference}`}
         style={{ transition: 'stroke-dasharray 1s ease, stroke 0.5s' }}
       />
       {/* Needle */}
       <line x1={cx} y1={cy} x2={nx} y2={ny}
-        stroke="#e5e7eb" strokeWidth="2.5" strokeLinecap="round" />
+        stroke="#e5e7eb" strokeWidth="1.5" strokeLinecap="round" />
       {/* Center dot */}
       <circle cx={cx} cy={cy} r={5} fill="#9ca3af" />
       {/* Score text */}
       <text x={cx} y={cy + 22} textAnchor="middle"
-        fontSize="22" fontWeight="800" fill="#ffffff" fontFamily="inherit">
+        fontSize="15" fontWeight="800" fill="#ffffff" fontFamily="inherit">
         {score}%
       </text>
     </svg>
@@ -1426,7 +1426,7 @@ export default function App() {
 
       {/* PREDICTION */}
       <Card>
-        <SecTitle>คาดการณ์ราคาในอีก 24 ช.ม.</SecTitle>
+        <SecTitle>คาดการณ์ราคา ETH ในอีก 24 ช.ม.</SecTitle>
         <div style={{ display: 'flex', gap: 12 }}>
           <div style={{ flex: 1, background: '#f0faf4', borderRadius: 10, padding: '12px', textAlign: 'center', border: '1px solid #dcfce7' }}>
             <div style={{ fontSize: 13, color: '#166534', fontWeight: 700, marginBottom: 4 }}>สูงขึ้นเป็น</div>
