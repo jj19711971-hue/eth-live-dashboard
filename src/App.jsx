@@ -38,7 +38,7 @@ function calcMarketPhase(ind) {
       color: '#2d6a4f', bg: '#f0fdf4', border: '#86efac', barColor: '#22c55e',
       strength,
       detail: `ADX ${adx?.toFixed(1)} · +DI ${plusDI?.toFixed(1)} > -DI ${minusDI?.toFixed(1)} · Price > EMA21`,
-      hint: adx > 40 ? 'Trend แข็งมาก — ระวัง Overbought' : 'Trend ขาขึ้น — แนวโน้มขาขึ้นรุนแรง โมเมนตัมพุ่งสูงจนเข้าเขตซื้อมากเกินไป (Overbought) มีความเสี่ยงในการย่อตัวระยะสั้น โครงสร้างราคายังคงรักษาทิศทางขาขึ้นได้ดี แรงซื้อมีความต่อเนื่องและมั่นคง',
+      hint: adx > 40 ? 'ยืนยันสภาวะ Bullish Breakout สมบูรณ์แบบ — ค่า ADX และ Volume สนับสนุนการขึ้นที่รุนแรง โครงสร้างราคาเป็นขาขึ้นชัดเจน แต่ควรเฝ้าระวังสัญญาณ Divergence ที่อาจเกิดขึ้นในโซนราคาที่สูงขึ้น มันคือสัญญาณเตือนล่วงหน้าว่า ใกล้จะถึงจุดพักตัวหรือกลับตัวเป็นขาลงแล้ว' : 'Trend ขาขึ้น — แนวโน้มขาขึ้นรุนแรง โมเมนตัมพุ่งสูงจนเข้าเขตซื้อมากเกินไป (Overbought) มีความเสี่ยงในการย่อตัวระยะสั้น โครงสร้างราคายังคงรักษาทิศทางขาขึ้นได้ดี แรงซื้อมีความต่อเนื่องและมั่นคง',
     }
   }
   if (adx !== null && adx >= 20 && price < ema21h4 && minusDI > plusDI) {
@@ -605,8 +605,8 @@ function FuturesCard({ pos }) {
           </>
         )}
 
-        <div style={{ fontSize: 10, color: '#a09880', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, lineHeight: 1.6, marginTop: 4 }}>
-          ⚠️ หมายเหตุ: คำอธิบาย ดูได้ใน Readme
+        <div style={{ fontSize: 13, color: '#a09880', padding: '8px 10px', background: 'rgba(0,0,0,0.03)', borderRadius: 8, lineHeight: 1.6, marginTop: 4 }}>
+          ⚠️ หมายเหตุ: ทำไม Checklist ถึงกำหนดไว้ที่ 45–72 เพราะโซนนี้คือ "Sweet Spot" หรือจุดที่เหมาะสมที่สุด เหนือ 45 ยืนยันว่าไม่ใช่แค่การเด้งหลอกๆ แต่เริ่มมีแรงส่งจริง ไม่เกิน 72 ยืนยันว่าราคายังไม่แพง จนเกินไป ยังมีพื้นที่ ให้วิ่งต่อได้อีกพอสมควรก่อนจะหมดแรง
         </div>
       </div>
     </div>
@@ -1166,52 +1166,52 @@ function GoldMarketBlock() {
 const README_ITEMS = [
   {
     num: 1,
-    title: 'หัวข้อที่ 1',
-    content: 'Text1',
+    title: 'กลยุทธ์แนะนำ:',
+    content: '📋 กลยุทธ์การบริหารจัดการคำสั่ง',
     subItems: [
-      { title: 'หัวข้อย่อย 1.1', content: '' },
+      { title: 'สถานะ RSI และคำแนะนำในตลาด Futures', content: 'RSI <45 เปิดได้  ไม้เล็ก เพราะเทรนด์มาแล้ว แต่ต้องใจเย็นรอแรงส่ง RSI 45-72 จังหวะนี้คือดีที่สุด RSI >72 ชะลอการซื้อ ให้รอราคาย่อจน RSI ลดลงมาหน่อยค่อยเข้า' },
       { title: 'หัวข้อย่อย 1.2', content: '' },
       { title: 'หัวข้อย่อย 1.3', content: '' },
     ],
   },
   {
     num: 2,
-    title: 'หัวข้อที่ 2',
-    content: 'Text2',
+    title: 'ข้อมูลเกี่ยวกับระบบเศรษฐกิจ',
+    content: '🌐 ระบบการเงินโลก มีผลต่อการลงทุน',
     subItems: [
-      { title: 'หัวข้อย่อย 2.1', content: '' },
+      { title: 'MACRO สภาพแวดล้อมมหาภาค ภาวะตลาดโลก', content: 'อธิบาย: Risk-on นักลงทุนมีมุมมองในแง่บวกต่อเศรษฐกิจ เชื่อว่าตลาดจะเติบโต จึงย้ายเงินจากสินทรัพย์ที่ปลอดภัยไปลงทุนในสินทรัพย์ที่ให้ผลตอบแทนสูงกว่า Risk-off ตลาดเต็มไปด้วยความกังวล เช่น มีข่าวสงคราม, ตัวเลขเศรษฐกิจแย่กว่าคาด หรือเงินเฟ้อพุ่งสูง นักลงทุนจะเทขายสินทรัพย์เสี่ยงเพื่อรักษาเงินต้น Neutral หมายถึงสภาวะ สมดุล หรือ "ไร้ทิศทางที่ชัดเจน" ภาวะไม่เลือกข้าง ไม่มีแรงส่ง' },
       { title: 'หัวข้อย่อย 2.2', content: '' },
       { title: 'หัวข้อย่อย 2.3', content: '' },
     ],
   },
   {
     num: 3,
-    title: 'RSI/Oversold/Overbought/Swing High/TP/SL',
-    content: '⚠️ RSI ถ้าต่ำกว่า 30 คือสภาวะ ขายมากเกินไป หรือ Oversold ให้ระวังแรงซื้อเพื่อสะสม และถ้า RSI อยู่ในโซน 50 เรียกว่าโซนวัดใจ Neutral ราคามักออกข้างหรือ Sideway รอเลือกทาง รอข่าวหรือเหตุการณ์ใหม่ๆ มากระตุ้น และถ้า RSI มากกว่า 70 จะอยู่ในโซน ซื้อมากเกินไป หรือ Overbought ให้ระวังแรงเทขายทำกำไร ⚠️ ขยายความ: TP1/TP2 (Take Profit) คือจุดตั้งขายทำกำไร ส่วน SL (Stop Loss) คือตั้งจุดตัดขาดทุน ⚠️ แนวต้าน Swing High (สวิงไฮ) คือจุดที่ราคาวิ่งขึ้นไปทำ "จุดสูงสุด" ในช่วงเวลาหนึ่ง แล้วเริ่มมีการกลับตัวลดลงมา ทำให้เกิดลักษณะเป็น "ยอดแหลม" หรือ "ภูเขา" บนกราฟ เมื่อจุดนี้เกิดขึ้นแล้ว ในทางเทคนิคเราจะใช้จุดนี้เป็น แนวต้าน สำหรับการวิ่งขึ้นครั้งต่อไป',
+    title: 'อินดิเคเตอร์ RSI / Swing High / TP / SL',
+    content: '📊 อินดิเคเตอร์ ตัวชี้วัดหรือดัชนีที่ใช้บอกสถานะ',
     subItems: [
-      { title: 'RSI — ดัชนีความแข็งแกร่งสัมพัทธ์', content: '' },
-      { title: 'TP / SL — จุดทำกำไรและตัดขาดทุน', content: '' },
-      { title: 'Swing High / Swing Low', content: '' },
+      { title: 'RSI Relative Strength Index', content: 'RSI ถ้าต่ำกว่า 30 คือสภาวะ ขายมากเกินไป หรือ Oversold ให้ระวังแรงซื้อเพื่อสะสม และถ้า RSI อยู่ในโซน 50 เรียกว่าโซนวัดใจ Neutral ราคามักออกข้างหรือ Sideway รอเลือกทาง รอข่าวหรือเหตุการณ์ใหม่ๆ มากระตุ้น และถ้า RSI มากกว่า 70 จะอยู่ในโซน ซื้อมากเกินไป หรือ Overbought ให้ระวังแรงเทขายทำกำไร' },
+      { title: 'TP / SL — จุดทำกำไรและตัดขาดทุน', content: '⚠️ ขยายความ: TP1/TP2 (Take Profit) คือจุดตั้งขายทำกำไร ส่วน SL (Stop Loss) คือตั้งจุดตัดขาดทุน' },
+      { title: 'Swing High / Swing Low', content: '⚠️ แนวต้าน Swing High (สวิงไฮ) คือจุดที่ราคาวิ่งขึ้นไปทำ "จุดสูงสุด" ในช่วงเวลาหนึ่ง แล้วเริ่มมีการกลับตัวลดลงมา ทำให้เกิดลักษณะเป็น "ยอดแหลม" หรือ "ภูเขา" บนกราฟ เมื่อจุดนี้เกิดขึ้นแล้ว ในทางเทคนิคเราจะใช้จุดนี้เป็น แนวต้าน สำหรับการวิ่งขึ้นครั้งต่อไป' },
     ],
   },
   {
     num: 4,
-    title: 'ATR Average True Range',
-    content: 'อินดิเคเตอร์ทางเทคนิคที่ใช้สำหรับ "วัดความผันผวน" คือค่าเฉลี่ยความแกว่ง ความผันผวนของราคา ระยะการวิ่ง ของราคาในหนึ่งช่วงเวลา เช่นกราฟ 1 ชั่วโมง ราคา มีการวิ่งขึ้นและลงเฉลี่ยอยู่ที่ประมาณกี่ดอลลาร์ ถ้า ATR สูงขึ้น: แปลว่าตลาดกำลัง "ผันผวนรุนแรง" (แท่งเทียนยาวๆ) ถ้า ATR ต่ำลง: แปลว่าตลาดกำลัง "เงียบเหงา" ราคาแกว่งตัวแคบๆ (แท่งเทียนสั้นๆ) ATR ไม่ได้บอก "ทิศทาง" ว่าราคาจะขึ้นหรือลง แต่บอกว่า ปัจจุบันราคาวิ่งแรงแค่ไหน',
+    title: 'อินดิเคเตอร์  ATR / ADX / EMA',
+    content: '💡 อินดิเคเตอร์ ตัวชี้วัดหรือดัชนีที่ใช้บอกสถานะ',
     subItems: [
-      { title: 'ATR สูง — ความผันผวนรุนแรง', content: '' },
-      { title: 'ATR ต่ำ — ตลาดเงียบ', content: '' },
-      { title: 'วิธีใช้ ATR ในการตั้ง SL/TP', content: '' },
+      { title: 'ATR Average True Range', content: 'อินดิเคเตอร์ทางเทคนิคที่ใช้สำหรับ "วัดความผันผวน" คือค่าเฉลี่ยความแกว่ง ความผันผวนของราคา ระยะการวิ่ง ของราคาในหนึ่งช่วงเวลา เช่นกราฟ 1 ชั่วโมง ราคา มีการวิ่งขึ้นและลงเฉลี่ยอยู่ที่ประมาณกี่ดอลลาร์ ถ้า ATR สูงขึ้น: แปลว่าตลาดกำลัง "ผันผวนรุนแรง" (แท่งเทียนยาวๆ) ถ้า ATR ต่ำลง: แปลว่าตลาดกำลัง "เงียบเหงา" ราคาแกว่งตัวแคบๆ (แท่งเทียนสั้นๆ) ATR ไม่ได้บอก "ทิศทาง" ว่าราคาจะขึ้นหรือลง แต่บอกว่า ปัจจุบันราคาวิ่งแรงแค่ไหน' },
+      { title: 'ADX Average Directional Index', content: 'จุดเด่นของมันคือ ไม่บอกทิศทาง ไม่บอกว่าขึ้นหรือลง แต่จะบอกว่า เทรนด์ที่กำลังเกิดขึ้นอยู่นั้น แรงแค่ไหน ค่า ADX จะวิ่งอยู่ระหว่าง 0 ถึง 100 โดย ADX <20 ไม่มีเทรนด์ / Squeeze ราคาช่วงนี้มักจะวิ่งออกข้างหรือ Sideways ADX >20-25 เทรนด์เริ่มมา เป็นจุดเริ่มต้นที่บอกว่าตลาดเริ่มมีทิศทางชัดเจน ADX >40 เทรนด์แข็งแกร่งมาก ราคาพุ่งแรงหรือลงแรงมาก ADX >50 เทรนด์แรงระดับสูงสุด มักเกิดขึ้นในช่วงที่ตลาดเกิด Panic หรือ FOMO ให้ระวังการกลับตัวแบบฉับพลัน' },
+      { title: 'EMA Exponential Moving Average', content: 'EMA คือเส้นค่าเฉลี่ยเคลื่อนที่แบบ "ถ่วงน้ำหนัก" ซึ่งจะให้ความสำคัญกับ ราคาล่าสุด มากกว่าราคาในอดีต ทำให้เส้น EMA วิ่งตามราคาได้ไว (ตอบสนองเร็ว) EMA9 (เส้นเร็ว) ใช้ดูแนวโน้มระยะสั้นมาก ในรอบ 9 ชั่วโมง ทำหน้าที่เป็น "เส้นนำทาง" EMA21 (เส้นช้า) ใช้ดูแนวโน้มระยะกลาง ในรอบ 21 ชั่วโมง ทำหน้าที่เป็น เส้นแนวรับ/แนวต้านเคลื่อนที่' },
     ],
   },
   {
     num: 5,
-    title: 'Risk-on Risk-off และ Neutral',
-    content: 'อธิบาย: Risk-on นักลงทุนมีมุมมองในแง่บวกต่อเศรษฐกิจ เชื่อว่าตลาดจะเติบโต จึงย้ายเงินจากสินทรัพย์ที่ปลอดภัยไปลงทุนในสินทรัพย์ที่ให้ผลตอบแทนสูงกว่า Risk-off ตลาดเต็มไปด้วยความกังวล เช่น มีข่าวสงคราม, ตัวเลขเศรษฐกิจแย่กว่าคาด หรือเงินเฟ้อพุ่งสูง นักลงทุนจะเทขายสินทรัพย์เสี่ยงเพื่อรักษาเงินต้น Neutral หมายถึงสภาวะ สมดุล หรือ "ไร้ทิศทางที่ชัดเจน" ภาวะไม่เลือกข้าง ไม่มีแรงส่ง',
+    title: 'Text5',
+    content: 'Text5.1',
     subItems: [
-      { title: 'Risk-on — ภาวะชอบความเสี่ยง', content: '' },
-      { title: 'Risk-off — ภาวะหลีกเลี่ยงความเสี่ยง', content: '' },
-      { title: 'Neutral — ภาวะสมดุล', content: '' },
+      { title: 'Text', content: '' },
+      { title: 'Text', content: '' },
+      { title: 'Text', content: '' },
     ],
   },
 ]
@@ -1244,11 +1244,11 @@ function ReadmeBlock() {
       }}>
         <span style={{ fontSize: 22 }}>📖</span>
         <div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', fontWeight: 600, letterSpacing: 1.2, textTransform: 'uppercase' }}>
             README
           </div>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#ffffff' }}>
-            การแนะนำและคำอธิบาย
+            คำแนะนำและคำอธิบาย
           </div>
         </div>
       </div>
@@ -1346,7 +1346,7 @@ function ReadmeBlock() {
                       <div style={{
                         padding: '7px 14px',
                         background: 'linear-gradient(90deg, #2d5282 0%, #3b6cb7 100%)',
-                        fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: 700,
+                        fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: 700,
                         letterSpacing: 0.8,
                       }}>
                         📂 หัวข้อย่อย
@@ -1382,7 +1382,7 @@ function ReadmeBlock() {
                                   {si + 1}
                                 </div>
                                 <span style={{
-                                  fontSize: 12, fontWeight: 600,
+                                  fontSize: 13, fontWeight: 600,
                                   color: isSubOpen ? '#1E3A5F' : '#4a5568',
                                 }}>
                                   {sub.title}
@@ -1404,7 +1404,7 @@ function ReadmeBlock() {
                               }}>
                                 {sub.content ? (
                                   <div style={{
-                                    fontSize: 13, color: '#2c3e50',
+                                    fontSize: 15, color: '#2c3e50',
                                     lineHeight: 1.8, whiteSpace: 'pre-wrap',
                                   }}>
                                     {sub.content}
@@ -1450,6 +1450,10 @@ export default function App() {
   const [breakdown, setBreakdown]   = useState(null)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [countdown, setCountdown]   = useState(AUTO_REFRESH_SEC)
+  // ── Toggle panels (Spot / Futures / Gold) ──────────────────
+  const [showSpot,    setShowSpot]    = useState(false)
+  const [showFutures, setShowFutures] = useState(false)
+  const [showGold,    setShowGold]    = useState(false)
   const timerRef = useRef(null), countRef = useRef(null)
 
   const load = useCallback(async (isRefresh = false) => {
@@ -1553,11 +1557,175 @@ export default function App() {
       {/* MARKET PHASE */}
       <MarketPhaseCard phase={marketPhase} />
 
-      {/* ── SPOT TRADING ADVISOR (NEW) ── */}
-      <SpotAdvisorCard adv={spotAdv} price={ind?.price} ethThb={ind?.ethThb} />
+      {/* ══════════════════════════════════════════════════
+          TOGGLE MENU — Spot / Futures / Gold
+          กดเพื่อแสดง/ซ่อนแต่ละบล็อค
+      ══════════════════════════════════════════════════ */}
+      <div style={{ margin: '10px 16px 4px' }}>
+        {/* Label */}
+        <div style={{ fontSize: 14, color: '#a09880', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>
+          📋 เลือกดูข้อมูลตลาดเพิ่มเติม
+        </div>
 
-      {/* ── FUTURES POSITION ── */}
-      <FuturesCard pos={futuresPos} />
+        {/* Menu 1 — SPOT */}
+        <button
+          onClick={() => setShowSpot(v => !v)}
+          style={{
+            width: '100%', marginBottom: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '11px 16px',
+            background: showSpot ? '#0f4c35' : '#ffffff',
+            border: showSpot ? '1.5px solid #0f4c35' : '1.5px solid #c8e6c9',
+            borderRadius: 12,
+            cursor: 'pointer', fontFamily: 'inherit',
+            boxShadow: showSpot ? '0 2px 8px rgba(15,76,53,0.25)' : '0 1px 3px rgba(0,0,0,0.06)',
+            transition: 'all 0.2s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 10,
+              background: showSpot ? 'rgba(255,255,255,0.15)' : '#e8f5e9',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 17, flexShrink: 0,
+            }}>🛒</div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: showSpot ? '#ffffff' : '#1a5c38', lineHeight: 1.2 }}>
+                ตลาด SPOT
+              </div>
+              <div style={{ fontSize: 10, color: showSpot ? 'rgba(255,255,255,0.7)' : '#52796f', marginTop: 1 }}>
+                ซื้อขายสินทรัพย์จริง · ETH/THB
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700,
+              color: showSpot ? '#86efac' : '#2d6a4f',
+              background: showSpot ? 'rgba(255,255,255,0.12)' : '#d8f3dc',
+              padding: '3px 8px', borderRadius: 20,
+            }}>
+              {showSpot ? 'ซ่อน' : 'แสดง'}
+            </div>
+            <span style={{
+              fontSize: 11, color: showSpot ? '#fff' : '#52796f',
+              transform: showSpot ? 'rotate(180deg)' : 'rotate(0deg)',
+              display: 'inline-block', transition: 'transform 0.25s',
+            }}>▼</span>
+          </div>
+        </button>
+
+        {/* Menu 2 — FUTURES */}
+        <button
+          onClick={() => setShowFutures(v => !v)}
+          style={{
+            width: '100%', marginBottom: 6,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '11px 16px',
+            background: showFutures ? '#7f1d1d' : '#ffffff',
+            border: showFutures ? '1.5px solid #7f1d1d' : '1.5px solid #fecaca',
+            borderRadius: 12,
+            cursor: 'pointer', fontFamily: 'inherit',
+            boxShadow: showFutures ? '0 2px 8px rgba(127,29,29,0.25)' : '0 1px 3px rgba(0,0,0,0.06)',
+            transition: 'all 0.2s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 10,
+              background: showFutures ? 'rgba(255,255,255,0.15)' : '#fde8e8',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 17, flexShrink: 0,
+            }}>📈</div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: showFutures ? '#ffffff' : '#7f1d1d', lineHeight: 1.2 }}>
+                ตลาด FUTURES
+              </div>
+              <div style={{ fontSize: 10, color: showFutures ? 'rgba(255,255,255,0.7)' : '#9b2226', marginTop: 1 }}>
+                สัญญาซื้อขายล่วงหน้า · Leverage 1:200
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700,
+              color: showFutures ? '#fca5a5' : '#9b2226',
+              background: showFutures ? 'rgba(255,255,255,0.12)' : '#fde8e8',
+              padding: '3px 8px', borderRadius: 20,
+            }}>
+              {showFutures ? 'ซ่อน' : 'แสดง'}
+            </div>
+            <span style={{
+              fontSize: 11, color: showFutures ? '#fff' : '#9b2226',
+              transform: showFutures ? 'rotate(180deg)' : 'rotate(0deg)',
+              display: 'inline-block', transition: 'transform 0.25s',
+            }}>▼</span>
+          </div>
+        </button>
+
+        {/* Menu 3 — GOLD */}
+        <button
+          onClick={() => setShowGold(v => !v)}
+          style={{
+            width: '100%', marginBottom: 2,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '11px 16px',
+            background: showGold ? '#78350f' : '#ffffff',
+            border: showGold ? '1.5px solid #78350f' : '1.5px solid #fde68a',
+            borderRadius: 12,
+            cursor: 'pointer', fontFamily: 'inherit',
+            boxShadow: showGold ? '0 2px 8px rgba(120,53,15,0.25)' : '0 1px 3px rgba(0,0,0,0.06)',
+            transition: 'all 0.2s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 10,
+              background: showGold ? 'rgba(255,255,255,0.15)' : '#fef9c3',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 17, flexShrink: 0,
+            }}>🥇</div>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: showGold ? '#ffffff' : '#78350f', lineHeight: 1.2 }}>
+                ตลาดทองคำ GOLD
+              </div>
+              <div style={{ fontSize: 10, color: showGold ? 'rgba(255,255,255,0.7)' : '#a16207', marginTop: 1 }}>
+                GOLD MARKET · XAUUSD · ราคาบาททองคำ
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              fontSize: 10, fontWeight: 700,
+              color: showGold ? '#fde68a' : '#a16207',
+              background: showGold ? 'rgba(255,255,255,0.12)' : '#fef9c3',
+              padding: '3px 8px', borderRadius: 20,
+            }}>
+              {showGold ? 'ซ่อน' : 'แสดง'}
+            </div>
+            <span style={{
+              fontSize: 11, color: showGold ? '#fff' : '#a16207',
+              transform: showGold ? 'rotate(180deg)' : 'rotate(0deg)',
+              display: 'inline-block', transition: 'transform 0.25s',
+            }}>▼</span>
+          </div>
+        </button>
+      </div>
+
+      {/* ── SPOT TRADING ADVISOR — แสดงเมื่อ toggle เปิด ── */}
+      {showSpot && (
+        <SpotAdvisorCard adv={spotAdv} price={ind?.price} ethThb={ind?.ethThb} />
+      )}
+
+      {/* ── FUTURES POSITION — แสดงเมื่อ toggle เปิด ── */}
+      {showFutures && (
+        <FuturesCard pos={futuresPos} />
+      )}
+
+      {/* GOLD MARKET — แสดงเมื่อ toggle เปิด */}
+      {showGold && (
+        <GoldMarketBlock />
+      )}
 
       {/* PREDICTION */}
       <Card>
@@ -1610,7 +1778,7 @@ export default function App() {
         <IndRow dotColor="#52b788" label="+Buy / -Sell ยืนยัน:แรงซื้อ/ขาย"
           value={ind?.plusDI > ind?.minusDI ? '+DI > -DI ▲' : '+DI < -DI ▼'}
           valueColor={ind?.plusDI > ind?.minusDI ? '#2d6a4f' : '#c0392b'} />
-        <IndRow dotColor="#f4a261" label="RSI (14) มากเกินไป"
+        <IndRow dotColor="#f4a261" label="RSI (14) "
           value={ind?.rsi?.toFixed(1) ?? '—'}
           valueColor={ind?.rsi > 70 ? '#e63946' : ind?.rsi < 30 ? '#c0392b' : ind?.rsi > 50 ? '#2d6a4f' : '#c07a30'}
           bar={{ value: ind?.rsi ?? 0, max: 100, color: ind?.rsi > 70 ? '#e63946' : ind?.rsi < 30 ? '#c0392b' : '#f4a261' }} />
@@ -1667,9 +1835,6 @@ export default function App() {
         </div>
       </Card>
 
-      {/* GOLD MARKET */}
-      <GoldMarketBlock />
-
       {/* README */}
       <ReadmeBlock />
 
@@ -1687,7 +1852,7 @@ export default function App() {
         </button>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, padding: '0 2px' }}>
           {lastUpdate && <span style={{ fontSize: 13, color: '#b0a898' }}>อัปเดตล่าสุด {lastUpdate.toLocaleTimeString('th-TH')}</span>}
-          <span style={{ fontSize: 13, color: '#b0a898' }}>Auto-refresh ทุก {AUTO_REFRESH_SEC} วินาที</span>
+          <span style={{ fontSize: 13, color: '#b0a898' }}>พัฒนาโดย Jedsada and Nutminer</span>
         </div>
         {error && <div style={{ color: '#e63946', fontSize: 11, textAlign: 'center', marginTop: 6 }}>{error}</div>}
       </div>
