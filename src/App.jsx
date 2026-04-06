@@ -1320,7 +1320,7 @@ function ReadmeBlock() {
               {/* Content panel */}
               {isOpen && (
                 <div style={{
-                  padding: '14px 18px 16px 58px',
+                  padding: '14px 18px 16px 5px',
                   background: '#f5f9ff',
                   borderBottom: isLast ? 'none' : '1px solid #ddeaf8',
                 }}>
@@ -1398,7 +1398,7 @@ function ReadmeBlock() {
                             {/* Sub content */}
                             {isSubOpen && (
                               <div style={{
-                                padding: '12px 16px 14px 45px',
+                                padding: '12px 16px 14px 5px',
                                 background: '#f0f6ff',
                                 borderBottom: isSubLast ? 'none' : '1px solid #ddeaf8',
                               }}>
