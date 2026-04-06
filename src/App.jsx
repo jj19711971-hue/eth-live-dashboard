@@ -873,70 +873,103 @@ function calcGoldConfidence(paxgData) {
   return { score, level, direction, dirIcon, dirColor, color, rangeMin, rangeMax }
 }
 
-// ── Gauge SVG ─────────────────────────────────────────────────
-function GoldGauge({ score }) {
-  // Half-circle gauge: 180° arc from left to right
-  const r = 30, cx = 45, cy = 40
-  const circumference = Math.PI * r  // half circle
-  const offset = circumference * (1 - score / 100)
+// ── Gold Confidence Bar — slider/progress bar style ──────────────
+function GoldConfidenceBar({ confidence }) {
+  const { score, level, direction, dirIcon, dirColor, color } = confidence
 
-  // Color gradient: red(0) → orange(40) → yellow(60) → green(100)
-  const getColor = (s) => {
-    if (s >= 75) return '#22c55e'
-    if (s >= 55) return '#86efac'
-    if (s >= 40) return '#f59e0b'
-    if (s >= 25) return '#f97316'
-    return '#ef4444'
+  // สีแถบตามระดับ
+  const getBarColor = (s) => {
+    if (s >= 75) return { bar: '#16a34a', bg: '#dcfce7', border: '#86efac', text: '#14532d' }
+    if (s >= 60) return { bar: '#22c55e', bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' }
+    if (s >= 45) return { bar: '#f59e0b', bg: '#fffbeb', border: '#fde68a', text: '#78350f' }
+    if (s >= 30) return { bar: '#f97316', bg: '#fff7ed', border: '#fed7aa', text: '#7c2d12' }
+    return { bar: '#ef4444', bg: '#fff1f2', border: '#fca5a5', text: '#7f1d1d' }
   }
-  const needleAngle = -90 + (score / 100) * 180  // -90° to +90°
-  const rad = (needleAngle * Math.PI) / 180
-  const nx = cx + r * 0.85 * Math.cos(rad)
-  const ny = cy + r * 0.85 * Math.sin(rad)
+  const palette = getBarColor(score)
+
+  // Tick marks
+  const ticks = [0, 25, 50, 75, 100]
 
   return (
-    <svg width={180} height={100} viewBox="0 0 180 100">
-      {/* Background arc segments: red, orange, yellow, green */}
-      {[
-        { start: 180, end: 225, color: '#ef4444' },
-        { start: 225, end: 270, color: '#f97316' },
-        { start: 270, end: 315, color: '#f59e0b' },
-        { start: 315, end: 360, color: '#22c55e' },
-      ].map((seg, i) => {
-        const s = (seg.start * Math.PI) / 180
-        const e = (seg.end * Math.PI) / 180
-        const x1 = cx + r * Math.cos(s), y1 = cy + r * Math.sin(s)
-        const x2 = cx + r * Math.cos(e), y2 = cy + r * Math.sin(e)
-        const large = seg.end - seg.start > 180 ? 1 : 0
-        return (
-          <path key={i}
-            d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`}
-            fill={seg.color} opacity={0.25}
-          />
-        )
-      })}
-      {/* Arc track (background) */}
-      <path
-        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-        fill="none" stroke="#374151" strokeWidth="5" strokeLinecap="round"
-      />
-      {/* Arc progress */}
-      <path
-        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
-        fill="none" stroke={getColor(score)} strokeWidth="5" strokeLinecap="round"
-        strokeDasharray={`${(score / 100) * circumference} ${circumference}`}
-        style={{ transition: 'stroke-dasharray 1s ease, stroke 0.5s' }}
-      />
-      {/* Needle */}
-      <line x1={cx} y1={cy} x2={nx} y2={ny}
-        stroke="#e5e7eb" strokeWidth="0" strokeLinecap="round" />
-      {/* Center dot */}
-      <circle cx={cx} cy={cy} r={5} fill="#9ca3af" />
-      {/* Score text */}
-      <text x={cx} y={cy + 22} textAnchor="middle"
-        fontSize="18" fontWeight="800" fill="#ffffff" fontFamily="inherit">
-        {score}%
-      </text>
-    </svg>
+    <div style={{
+      background: palette.bg,
+      border: `1.5px solid ${palette.border}`,
+      borderRadius: 14,
+      padding: '14px 16px',
+    }}>
+      {/* Row 1: label + score badge */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <span style={{ fontSize: 15 }}>📊</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: palette.text }}>ระดับความเชื่อมั่น :</span>
+          <span style={{
+            fontSize: 13, fontWeight: 800, color: '#fff',
+            background: palette.bar, borderRadius: 20,
+            padding: '2px 10px',
+          }}>{level}</span>
+        </div>
+        <span style={{
+          fontSize: 20, fontWeight: 900, color: palette.bar,
+          lineHeight: 1,
+        }}>{score}%</span>
+      </div>
+
+      {/* Progress bar track */}
+      <div style={{ position: 'relative', marginBottom: 6 }}>
+        {/* Gradient track background */}
+        <div style={{
+          height: 14, borderRadius: 8,
+          background: 'linear-gradient(to right, #fecaca 0%, #fed7aa 25%, #fef08a 50%, #bbf7d0 75%, #86efac 100%)',
+          overflow: 'hidden',
+          border: '1px solid rgba(0,0,0,0.08)',
+          position: 'relative',
+        }}>
+          {/* Dimming overlay for "unlit" part */}
+          <div style={{
+            position: 'absolute', top: 0, left: `${score}%`, right: 0, bottom: 0,
+            background: 'rgba(255,255,255,0.62)',
+            borderRadius: '0 8px 8px 0',
+            transition: 'left 1s ease',
+          }} />
+        </div>
+        {/* Thumb dot */}
+        <div style={{
+          position: 'absolute',
+          left: `${score}%`,
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 20, height: 20,
+          background: palette.bar,
+          borderRadius: '50%',
+          border: '3px solid #fff',
+          boxShadow: `0 2px 6px ${palette.bar}66`,
+          transition: 'left 1s ease',
+          zIndex: 2,
+        }} />
+      </div>
+
+      {/* Tick labels */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+        {ticks.map(t => (
+          <span key={t} style={{ fontSize: 9, color: '#a09880', fontWeight: 600 }}>{t}%</span>
+        ))}
+      </div>
+
+      {/* Row 2: forecast direction */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        background: 'rgba(255,255,255,0.7)',
+        border: `1px solid ${palette.border}`,
+        borderRadius: 10, padding: '8px 12px',
+      }}>
+        <span style={{ fontSize: 13, color: palette.text, fontWeight: 700 }}>
+          → คาดการณ์:
+        </span>
+        <span style={{ fontSize: 15, fontWeight: 900, color: dirColor }}>
+          {dirIcon} {direction}
+        </span>
+      </div>
+    </div>
   )
 }
 
@@ -1085,74 +1118,32 @@ function GoldMarketBlock() {
 
             <div style={{ height: 1, background: '#fde68a', margin: '0 16px' }} />
 
-            {/* ── ส่วนที่ 2: Confidence Score ── */}
+            {/* ── ส่วนที่ 2: Confidence Bar ── */}
             <div style={{ padding: '14px 16px 16px' }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#78350f', marginBottom: 12, letterSpacing: 0.5 }}>
                 🎯 คาดการณ์ราคาในอีก 24 ชั่วโมง
               </div>
 
+              <GoldConfidenceBar confidence={goldData.confidence} />
+
+              {/* ช่วงราคาคาดการณ์ */}
               <div style={{
-                background: '#1f2937',
-                borderRadius: 14,
-                padding: '14px 16px',
-                display: 'flex',
-		alignItems: 'center',
-		gap: 8,
-		justifyContent: 'flex-start',
+                marginTop: 10,
+                background: '#fefce8',
+                border: '1px solid #fde68a',
+                borderRadius: 10,
+                padding: '9px 14px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               }}>
-                {/* Gauge */}
-                <div style={{ flexShrink: 0 }}>
-                  <GoldGauge score={goldData.confidence.score} />
-                </div>
-
-                {/* Info */}
-                <div style={{ flex: 1 }}>
-                  {/* Confidence Level header */}
-                  <div style={{
-                    flex: 1,
-		    display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8,
-                    padding: '4px 10px', background: 'rgba(255,255,255,0.08)',
-                    borderRadius: 8, width: 'fit-content',
-		    marginLeft: -100
-                  }}>
-                    <span style={{ fontSize: 14 }}>✅</span>
-                    <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, letterSpacing: 0.5 }}>Confidence Score</span>
-                  </div>
-                  <div style={{ fontSize: 13, color: '#d1d5db', lineHeight: 1.6, marginBottom: 10,
-		     marginLeft: -100
- 		}}>
-                    ระดับความเชื่อมั่น :{' '}
-                    <span style={{ color: goldData.confidence.color, fontWeight: 800, fontSize: 14 }}>
-                      {goldData.confidence.level}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.6, marginBottom: 10,
-		    marginLeft: -100
-		 }}>
-                    โมเดลการวิเคราะห์ทางเทคนิคและปริมาณการซื้อขายใน 24 ชม.
-                  </div>
-
-                  {/* Direction */}
-                  <div style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    borderRadius: 10, padding: '8px 12px',
-		    marginLeft: -100,
-                  }}>
-                    <div style={{ fontSize: 14, color: goldData.confidence.dirColor, fontWeight: 800, marginBottom: 2 }}>
-                      {goldData.confidence.dirIcon} คาดการณ์: {goldData.confidence.direction}
-                    </div>
-                    <div style={{ fontSize: 12, color: '#9ca3af' }}>
-                      ${fmtUsd(Math.min(goldData.confidence.rangeMin, goldData.confidence.rangeMax))} –{' '}
-                      ${fmtUsd(Math.max(goldData.confidence.rangeMin, goldData.confidence.rangeMax))} USD
-                    </div>
-                  </div>
-                </div>
+                <span style={{ fontSize: 12, color: '#78350f', fontWeight: 600 }}>📉📈 ช่วงราคาคาดการณ์</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#a16207' }}>
+                  ${fmtUsd(Math.min(goldData.confidence.rangeMin, goldData.confidence.rangeMax))} – ${fmtUsd(Math.max(goldData.confidence.rangeMin, goldData.confidence.rangeMax))} USD
+                </span>
               </div>
 
               {/* Sub note */}
               <div style={{ fontSize: 11, color: '#a09880', marginTop: 8, lineHeight: 1.5 }}>
-                ⚠️ Confidence Score คำนวณจาก Trend 7 วัน + Momentum 24h + Volatility
+                ⚠️ คำนวณจาก Trend 7 วัน + Momentum 24h + Volatility
               </div>
             </div>
 
@@ -1177,33 +1168,70 @@ const README_ITEMS = [
     num: 1,
     title: 'หัวข้อที่ 1',
     content: 'Text1',
+    subItems: [
+      { title: 'หัวข้อย่อย 1.1', content: '' },
+      { title: 'หัวข้อย่อย 1.2', content: '' },
+      { title: 'หัวข้อย่อย 1.3', content: '' },
+    ],
   },
   {
     num: 2,
     title: 'หัวข้อที่ 2',
     content: 'Text2',
+    subItems: [
+      { title: 'หัวข้อย่อย 2.1', content: '' },
+      { title: 'หัวข้อย่อย 2.2', content: '' },
+      { title: 'หัวข้อย่อย 2.3', content: '' },
+    ],
   },
   {
     num: 3,
     title: 'RSI/Oversold/Overbought/Swing High/TP/SL',
     content: '⚠️ RSI ถ้าต่ำกว่า 30 คือสภาวะ ขายมากเกินไป หรือ Oversold ให้ระวังแรงซื้อเพื่อสะสม และถ้า RSI อยู่ในโซน 50 เรียกว่าโซนวัดใจ Neutral ราคามักออกข้างหรือ Sideway รอเลือกทาง รอข่าวหรือเหตุการณ์ใหม่ๆ มากระตุ้น และถ้า RSI มากกว่า 70 จะอยู่ในโซน ซื้อมากเกินไป หรือ Overbought ให้ระวังแรงเทขายทำกำไร ⚠️ ขยายความ: TP1/TP2 (Take Profit) คือจุดตั้งขายทำกำไร ส่วน SL (Stop Loss) คือตั้งจุดตัดขาดทุน ⚠️ แนวต้าน Swing High (สวิงไฮ) คือจุดที่ราคาวิ่งขึ้นไปทำ "จุดสูงสุด" ในช่วงเวลาหนึ่ง แล้วเริ่มมีการกลับตัวลดลงมา ทำให้เกิดลักษณะเป็น "ยอดแหลม" หรือ "ภูเขา" บนกราฟ เมื่อจุดนี้เกิดขึ้นแล้ว ในทางเทคนิคเราจะใช้จุดนี้เป็น แนวต้าน สำหรับการวิ่งขึ้นครั้งต่อไป',
+    subItems: [
+      { title: 'RSI — ดัชนีความแข็งแกร่งสัมพัทธ์', content: '' },
+      { title: 'TP / SL — จุดทำกำไรและตัดขาดทุน', content: '' },
+      { title: 'Swing High / Swing Low', content: '' },
+    ],
   },
   {
     num: 4,
     title: 'ATR Average True Range',
     content: 'อินดิเคเตอร์ทางเทคนิคที่ใช้สำหรับ "วัดความผันผวน" คือค่าเฉลี่ยความแกว่ง ความผันผวนของราคา ระยะการวิ่ง ของราคาในหนึ่งช่วงเวลา เช่นกราฟ 1 ชั่วโมง ราคา มีการวิ่งขึ้นและลงเฉลี่ยอยู่ที่ประมาณกี่ดอลลาร์ ถ้า ATR สูงขึ้น: แปลว่าตลาดกำลัง "ผันผวนรุนแรง" (แท่งเทียนยาวๆ) ถ้า ATR ต่ำลง: แปลว่าตลาดกำลัง "เงียบเหงา" ราคาแกว่งตัวแคบๆ (แท่งเทียนสั้นๆ) ATR ไม่ได้บอก "ทิศทาง" ว่าราคาจะขึ้นหรือลง แต่บอกว่า ปัจจุบันราคาวิ่งแรงแค่ไหน',
+    subItems: [
+      { title: 'ATR สูง — ความผันผวนรุนแรง', content: '' },
+      { title: 'ATR ต่ำ — ตลาดเงียบ', content: '' },
+      { title: 'วิธีใช้ ATR ในการตั้ง SL/TP', content: '' },
+    ],
   },
   {
     num: 5,
     title: 'Risk-on Risk-off และ Neutral',
     content: 'อธิบาย: Risk-on นักลงทุนมีมุมมองในแง่บวกต่อเศรษฐกิจ เชื่อว่าตลาดจะเติบโต จึงย้ายเงินจากสินทรัพย์ที่ปลอดภัยไปลงทุนในสินทรัพย์ที่ให้ผลตอบแทนสูงกว่า Risk-off ตลาดเต็มไปด้วยความกังวล เช่น มีข่าวสงคราม, ตัวเลขเศรษฐกิจแย่กว่าคาด หรือเงินเฟ้อพุ่งสูง นักลงทุนจะเทขายสินทรัพย์เสี่ยงเพื่อรักษาเงินต้น Neutral หมายถึงสภาวะ สมดุล หรือ "ไร้ทิศทางที่ชัดเจน" ภาวะไม่เลือกข้าง ไม่มีแรงส่ง',
+    subItems: [
+      { title: 'Risk-on — ภาวะชอบความเสี่ยง', content: '' },
+      { title: 'Risk-off — ภาวะหลีกเลี่ยงความเสี่ยง', content: '' },
+      { title: 'Neutral — ภาวะสมดุล', content: '' },
+    ],
   },
 ]
 
 function ReadmeBlock() {
   const [openIdx, setOpenIdx] = useState(null)
+  const [openSubIdx, setOpenSubIdx] = useState({}) // { itemIdx: subIdx or null }
 
-  const toggle = (i) => setOpenIdx(prev => prev === i ? null : i)
+  const toggle = (i) => {
+    setOpenIdx(prev => prev === i ? null : i)
+    // reset sub when closing parent
+    if (openIdx === i) setOpenSubIdx(prev => ({ ...prev, [i]: null }))
+  }
+
+  const toggleSub = (itemIdx, subIdx) => {
+    setOpenSubIdx(prev => ({
+      ...prev,
+      [itemIdx]: prev[itemIdx] === subIdx ? null : subIdx,
+    }))
+  }
 
   return (
     <div style={{ margin: '8px 16px' }}>
@@ -1237,6 +1265,7 @@ function ReadmeBlock() {
         {README_ITEMS.map((item, i) => {
           const isOpen = openIdx === i
           const isLast = i === README_ITEMS.length - 1
+          const hasSubItems = item.subItems && item.subItems.length > 0
 
           return (
             <div key={i}>
@@ -1295,13 +1324,110 @@ function ReadmeBlock() {
                   background: '#f5f9ff',
                   borderBottom: isLast ? 'none' : '1px solid #ddeaf8',
                 }}>
+                  {/* Main content text */}
                   <div style={{
                     fontSize: 15, color: '#2c3e50',
                     lineHeight: 1.8,
                     whiteSpace: 'pre-wrap',
+                    marginBottom: hasSubItems ? 14 : 0,
                   }}>
                     {item.content}
                   </div>
+
+                  {/* Sub-items accordion */}
+                  {hasSubItems && (
+                    <div style={{
+                      border: '1px solid #c7d9f0',
+                      borderRadius: 10,
+                      overflow: 'hidden',
+                      background: '#fff',
+                    }}>
+                      {/* Sub-items header */}
+                      <div style={{
+                        padding: '7px 14px',
+                        background: 'linear-gradient(90deg, #2d5282 0%, #3b6cb7 100%)',
+                        fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: 700,
+                        letterSpacing: 0.8,
+                      }}>
+                        📂 หัวข้อย่อย
+                      </div>
+
+                      {item.subItems.map((sub, si) => {
+                        const isSubOpen = openSubIdx[i] === si
+                        const isSubLast = si === item.subItems.length - 1
+                        return (
+                          <div key={si}>
+                            <button
+                              onClick={() => toggleSub(i, si)}
+                              style={{
+                                width: '100%', background: isSubOpen ? '#eef4fb' : '#fff',
+                                border: 'none',
+                                borderBottom: isSubLast && !isSubOpen ? 'none' : '1px solid #ddeaf8',
+                                padding: '10px 14px',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                                transition: 'background 0.15s',
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                                {/* Sub number badge */}
+                                <div style={{
+                                  width: 22, height: 22, borderRadius: '50%',
+                                  background: isSubOpen ? '#2d5282' : '#e8f0fb',
+                                  color: isSubOpen ? '#fff' : '#2d5282',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontSize: 10, fontWeight: 800, flexShrink: 0,
+                                  transition: 'background 0.2s, color 0.2s',
+                                }}>
+                                  {si + 1}
+                                </div>
+                                <span style={{
+                                  fontSize: 12, fontWeight: 600,
+                                  color: isSubOpen ? '#1E3A5F' : '#4a5568',
+                                }}>
+                                  {sub.title}
+                                </span>
+                              </div>
+                              <span style={{
+                                fontSize: 10, color: '#6b8aad',
+                                transform: isSubOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                transition: 'transform 0.2s', display: 'inline-block',
+                              }}>▼</span>
+                            </button>
+
+                            {/* Sub content */}
+                            {isSubOpen && (
+                              <div style={{
+                                padding: '12px 16px 14px 45px',
+                                background: '#f0f6ff',
+                                borderBottom: isSubLast ? 'none' : '1px solid #ddeaf8',
+                              }}>
+                                {sub.content ? (
+                                  <div style={{
+                                    fontSize: 13, color: '#2c3e50',
+                                    lineHeight: 1.8, whiteSpace: 'pre-wrap',
+                                  }}>
+                                    {sub.content}
+                                  </div>
+                                ) : (
+                                  <div style={{
+                                    fontSize: 12, color: '#a0aec0',
+                                    fontStyle: 'italic', lineHeight: 1.6,
+                                    padding: '6px 10px',
+                                    background: '#e8f0fb',
+                                    borderRadius: 8,
+                                    border: '1px dashed #c7d9f0',
+                                  }}>
+                                    ✏️ พื้นที่สำหรับเนื้อหา "{sub.title}" — สามารถเพิ่มข้อความได้ที่นี่
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
